@@ -63,45 +63,5 @@ def add_client(request_data: Dict[str, Any], prompts: Dict[str, Any], company_na
 		return None
 
 
-def update_client_prompts(client_id: str, prompts: Dict[str, Any]) -> bool:
-	try:
-		clients = load_all_clients()
-		for client in clients:
-			if client.get('client_id') == client_id:
-				client['prompts'] = prompts
-				save_all_clients(clients)
-				return True
-		return False
-	except Exception as e:
-		print(f"Error updating client prompts: {e}")
-		return False
-
-
-def update_client_overall_prompt(client_id: str, overall_prompt: str, settings: Optional[Dict[str, str]] = None) -> bool:
-	try:
-		clients = load_all_clients()
-		for client in clients:
-			if client.get('client_id') == client_id:
-				client['custom_overall_prompt'] = overall_prompt
-				save_all_clients(clients)
-				return True
-		return False
-	except Exception as e:
-		print(f"Error updating client overall prompt: {e}")
-		return False
-
-
-def update_client_voice(client_id: str, voice_id: Optional[str]) -> bool:
-	try:
-		clients = load_all_clients()
-		for client in clients:
-			if client.get('client_id') == client_id:
-				client['voice_id'] = voice_id
-				save_all_clients(clients)
-				return True
-		return False
-	except Exception as e:
-		print(f"Error updating client voice: {e}")
-		return False
 
 
