@@ -1,15 +1,23 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './ChatMessages.css';
 
-function ChatMessages({ messages }) {
+function ChatMessages({ messages, isTyping, isEmpty }) {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Auto-scroll to bottom when new messages arrive
+    // Auto-scroll to bottom when new messages arrive or typing starts
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isTyping]);
 
-  if (messages.length === 0) {
+  if (isEmpty && !isTyping) {
+    return (
+      <div className="messages-container empty-messages">
+        <h2 className="empty-message-title">How can I help you?</h2>
+      </div>
+    );
+  }
+
+  if (messages.length === 0 && !isTyping && !isEmpty) {
     return (
       <div className="messages-container empty-messages">
         <p>No messages yet. Start the conversation!</p>
@@ -33,10 +41,18 @@ function ChatMessages({ messages }) {
           </div>
         </div>
       ))}
+      {isTyping && (
+        <div className="message ai-message typing-indicator">
+          <div className="message-content typing-content">
+            <span className="typing-dot"></span>
+            <span className="typing-dot"></span>
+            <span className="typing-dot"></span>
+          </div>
+        </div>
+      )}
       <div ref={messagesEndRef} />
     </div>
   );
 }
 
 export default ChatMessages;
-

@@ -14,6 +14,8 @@ function ClientPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedChatId, setSelectedChatId] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [tempChatId, setTempChatId] = useState(null);
 
   useEffect(() => {
     fetchClient();
@@ -47,14 +49,15 @@ function ClientPage() {
       if (response.ok) {
         const data = await response.json();
         setChats(data);
-        // Auto-select first chat if available
-        if (data.length > 0 && !selectedChatId) {
-          setSelectedChatId(data[0].chat_id);
-        }
       }
     } catch (err) {
       console.error('Error fetching chats:', err);
     }
+  };
+
+  const handleNewChat = () => {
+    setSelectedChatId(null);
+    setTempChatId(null);
   };
 
   const fetchMessages = async (chatId) => {
@@ -66,33 +69,6 @@ function ClientPage() {
       }
     } catch (err) {
       console.error('Error fetching messages:', err);
-    }
-  };
-
-  const handleCreateChat = async (title) => {
-    try {
-      const response = await fetch('/api/chats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: clientId,
-          title: title
-        }),
-      });
-
-      if (response.ok) {
-        const newChat = await response.json();
-        setChats(prev => [newChat, ...prev]);
-        setSelectedChatId(newChat.chat_id);
-        return newChat;
-      } else {
-        const error = await response.json();
-        throw new Error(error.detail || 'Unknown error');
-      }
-    } catch (err) {
-      console.error('Error creating chat:', err);
-      alert(`Error creating chat: ${err.message}`);
-      throw err;
     }
   };
 
@@ -128,31 +104,138 @@ function ClientPage() {
   };
 
   const handleSendMessage = async (messageText) => {
-    if (!selectedChatId) {
-      return;
+    // Optimistically add user message immediately
+    const tempUserMessageId = `temp-${Date.now()}`;
+    const userMessage = {
+      message_id: tempUserMessageId,
+      content: messageText,
+      ai_generated: false,
+      created_at: new Date().toISOString()
+    };
+
+    // If no chat selected, create a new one
+    let currentChatId = selectedChatId;
+    if (!currentChatId) {
+      // We'll get the chat_id from the response
+      currentChatId = null;
     }
+
+    // Add user message optimistically (create temp chat state if needed)
+    if (!currentChatId) {
+      // Create a temporary chat state for the new chat
+      const newTempChatId = `temp-${Date.now()}`;
+      setTempChatId(newTempChatId);
+      setMessages(prev => ({
+        ...prev,
+        [newTempChatId]: [userMessage]
+      }));
+      currentChatId = newTempChatId;
+    } else {
+      setMessages(prev => ({
+        ...prev,
+        [currentChatId]: [...(prev[currentChatId] || []), userMessage]
+      }));
+    }
+
+    setIsTyping(true);
 
     try {
       const response = await fetch('/api/chats/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: selectedChatId,
+          chat_id: currentChatId && !currentChatId.startsWith('temp-') ? currentChatId : null,
+          client_id: clientId,
           message: messageText
         }),
       });
 
       if (response.ok) {
-        // Refresh messages
-        await fetchMessages(selectedChatId);
+        const result = await response.json();
+        
+        // Update chat list if new chat was created
+        if (result.chat_id && result.chat_id !== selectedChatId) {
+          const newChat = {
+            chat_id: result.chat_id,
+            title: result.chat_title,
+            created_at: new Date().toISOString()
+          };
+          setChats(prev => [newChat, ...prev]);
+          setSelectedChatId(result.chat_id);
+        }
+
+        // Replace temp message with real messages or append to existing
+        setMessages(prev => {
+          const newMessages = { ...prev };
+          
+          // Get temp messages if we were using a temp chat
+          let messagesToPreserve = [];
+          if (currentChatId && currentChatId.startsWith('temp-')) {
+            // We're creating a new chat, get messages from temp chat
+            messagesToPreserve = newMessages[currentChatId] || [];
+            // Remove temp chat ID
+            delete newMessages[currentChatId];
+          } else {
+            // We're adding to existing chat, get existing messages
+            messagesToPreserve = newMessages[result.chat_id] || [];
+          }
+          
+          // Remove the temp user message if it exists
+          const filteredMessages = messagesToPreserve.filter(m => m.message_id !== tempUserMessageId);
+          
+          // Add real messages (append, don't replace)
+          return {
+            ...newMessages,
+            [result.chat_id]: [
+              ...filteredMessages,
+              result.user_message,
+              result.ai_message
+            ]
+          };
+        });
+        
+        // Clear temp chat ID
+        setTempChatId(null);
       } else {
+        // Remove temp message on error
+        setMessages(prev => {
+          const newMessages = { ...prev };
+          // Remove temp chat IDs
+          Object.keys(newMessages).forEach(id => {
+            if (id.startsWith('temp-')) {
+              delete newMessages[id];
+            }
+          });
+          // Remove temp message from real chat if it exists
+          if (currentChatId && !currentChatId.startsWith('temp-')) {
+            newMessages[currentChatId] = (newMessages[currentChatId] || []).filter(m => m.message_id !== tempUserMessageId);
+          }
+          return newMessages;
+        });
         const error = await response.json();
         throw new Error(error.detail || 'Unknown error');
       }
     } catch (err) {
       console.error('Error sending message:', err);
       alert(`Error sending message: ${err.message}`);
+      // Remove temp message on error
+      setMessages(prev => {
+        const newMessages = { ...prev };
+        // Remove temp chat IDs
+        Object.keys(newMessages).forEach(id => {
+          if (id.startsWith('temp-')) {
+            delete newMessages[id];
+          }
+        });
+        // Remove temp message from real chat if it exists
+        if (currentChatId && !currentChatId.startsWith('temp-')) {
+          newMessages[currentChatId] = (newMessages[currentChatId] || []).filter(m => m.message_id !== tempUserMessageId);
+        }
+        return newMessages;
+      });
       throw err;
+    } finally {
+      setIsTyping(false);
     }
   };
 
@@ -181,7 +264,9 @@ function ClientPage() {
     );
   }
 
-  const currentMessages = selectedChatId ? (messages[selectedChatId] || []) : [];
+  // Show messages from selected chat, or from temp chat if we're creating a new one
+  const displayChatId = selectedChatId || tempChatId;
+  const currentMessages = displayChatId ? (messages[displayChatId] || []) : [];
 
   return (
     <div className="client-page">
@@ -206,23 +291,19 @@ function ClientPage() {
           selectedChatId={selectedChatId}
           onSelectChat={setSelectedChatId}
           onDeleteChat={handleDeleteChat}
-          onCreateChat={handleCreateChat}
+          onNewChat={handleNewChat}
         />
 
         <div className="chat-main">
-          {selectedChatId ? (
-            <>
-              <ChatMessages messages={currentMessages} />
-              <MessageInput
-                onSendMessage={handleSendMessage}
-                disabled={!selectedChatId}
-              />
-            </>
-          ) : (
-            <div className="no-chat-selected">
-              <p>Select a chat from the sidebar or create a new one to start chatting.</p>
-            </div>
-          )}
+          <ChatMessages 
+            messages={currentMessages} 
+            isTyping={isTyping}
+            isEmpty={!displayChatId && currentMessages.length === 0}
+          />
+          <MessageInput
+            onSendMessage={handleSendMessage}
+            disabled={false}
+          />
         </div>
       </div>
     </div>

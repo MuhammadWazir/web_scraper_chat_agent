@@ -135,12 +135,14 @@ async def delete_chat(chat_id: str, db: Session = Depends(get_db)):
 @router.post("/chats/send-message")
 async def send_message(
     request: SendMessageDTO,
+    http_request: Request,
     db: Session = Depends(get_db)
 ):
-    """Send a message in a chat and get AI response"""
+    """Send a message in a chat and get AI response. Creates chat if chat_id is not provided."""
     use_case = SendMessageUseCase(db)
     try:
-        result = await use_case.execute(request)
+        ip = get_client_ip(http_request) if http_request else "unknown"
+        result = await use_case.execute(request, ip_address=ip)
         return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

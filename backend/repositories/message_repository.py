@@ -29,6 +29,12 @@ class MessageRepository:
     def get_by_chat_id(self, chat_id: str) -> List[Message]:
         """Get all messages for a chat"""
         return self.db.query(Message).filter(Message.chat_id == chat_id).order_by(Message.created_at.asc()).all()
+    
+    def get_last_messages(self, chat_id: str, limit: int = 6) -> List[Message]:
+        """Get the last N messages for a chat, ordered by creation time (oldest first)"""
+        return self.db.query(Message).filter(
+            Message.chat_id == chat_id
+        ).order_by(Message.created_at.desc()).limit(limit).all()[::-1]
 
     def update(self, message: Message) -> Message:
         """Update a message"""
