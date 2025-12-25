@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import ClientForm from '../../components/ClientForm/ClientForm';
 import ClientCard from '../../components/ClientCard/ClientCard';
 import './Home.css';
@@ -6,52 +6,21 @@ import './Home.css';
 function Home() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
-  const wsRef = useRef(null);
 
   useEffect(() => {
     fetchClients();
-    connectWebSocket();
-
-    return () => {
-      // Cleanup WebSocket on unmount
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
   }, []);
-
-  const connectWebSocket = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        if (message.type === 'client_update') {
-          setClients(prevClients => 
-            prevClients.map(client => 
-              client.client_id === message.data.client_id ? message.data : client
-            )
-          );
-        }
-      } catch (error) {}
-    };
-
-    ws.onclose = () => {
-      setTimeout(connectWebSocket, 3000);
-    };
-
-    wsRef.current = ws;
-  };
 
   const fetchClients = async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/clients');
-      const data = await response.json();
-      setClients(data);
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
+      }
     } catch (error) {
+      console.error('Error fetching clients:', error);
     } finally {
       setLoading(false);
     }
@@ -61,8 +30,8 @@ function Home() {
     <div className="home-container">
       <header className="home-header">
         <div>
-          <h1>Voice Agent Dashboard</h1>
-          <p>Manage your AI voice agents</p>
+          <h1>Web Scraper Chat Agent</h1>
+          <p>Manage your AI chat agents</p>
         </div>
       </header>
 
@@ -95,4 +64,3 @@ function Home() {
 }
 
 export default Home;
-

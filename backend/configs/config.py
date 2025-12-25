@@ -14,6 +14,7 @@ class Settings:
 	openai_api_key: str
 	xi_api_key: str
 	agent_id: str
+	database_url: str
 
 
 def load_settings() -> Settings:
@@ -22,9 +23,11 @@ def load_settings() -> Settings:
 	eleven_labs_ws_url = os.getenv("ELEVENLABS_WS_URL", "")
 	xi_api_key = os.getenv("XI_API_KEY", "")
 	agent_id = os.getenv("AGENT_ID", "")
+	database_url = os.getenv("DATABASE_URL", "")
 	return Settings(
 		openai_api_key=openai_api_key,
 		eleven_labs_ws_url=eleven_labs_ws_url,
 		xi_api_key=xi_api_key,
 		agent_id=agent_id,
+		database_url=database_url,
 	)

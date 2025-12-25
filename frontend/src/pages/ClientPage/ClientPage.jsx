@@ -1,172 +1,159 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import ChatSidebar from '../../components/ChatSidebar/ChatSidebar';
+import ChatMessages from '../../components/ChatMessages/ChatMessages';
+import MessageInput from '../../components/MessageInput/MessageInput';
 import './ClientPage.css';
 
 function ClientPage() {
   const { clientId } = useParams();
   const navigate = useNavigate();
   const [client, setClient] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [messages, setMessages] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [widgetLoaded, setWidgetLoaded] = useState(false);
-  const [overallPromptData, setOverallPromptData] = useState(null);
-  const [clientVoiceId, setClientVoiceId] = useState('');
-  const widgetContainerRef = useRef(null);
-  const prompts = client?.prompts;
-  const areAllPromptsNull = !prompts || Object.values(prompts).every((v) => v === null || v === undefined);
-  const isGenerating = areAllPromptsNull;
+  const [selectedChatId, setSelectedChatId] = useState(null);
 
   useEffect(() => {
     fetchClient();
-    fetchOverallPrompt();
-    fetchClientVoice();
+    fetchChats();
   }, [clientId]);
 
-  // Poll for prompts while they are being generated
   useEffect(() => {
-    if (loading || error) return;
-    if (!isGenerating) return;
-    const intervalId = setInterval(() => {
-      fetchClient(true);
-    }, 5000);
-    return () => clearInterval(intervalId);
-  }, [loading, error, isGenerating, clientId]);
-
-  useEffect(() => {
-    // Load ElevenLabs script if not already loaded
-    if (!document.querySelector('script[src*="elevenlabs"]')) {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@elevenlabs/convai-widget-embed';
-      script.async = true;
-      document.body.appendChild(script);
+    if (selectedChatId) {
+      fetchMessages(selectedChatId);
     }
+  }, [selectedChatId]);
 
-    // Initialize widget when client data is available
-    if (client && widgetContainerRef.current && !isGenerating) {
-      initializeWidget();
-    }
-  }, [client, isGenerating, clientVoiceId]);
-
-  const fetchClient = async (silent = false) => {
+  const fetchClient = async () => {
     try {
-      if (!silent) setLoading(true);
-      const response = await fetch(`/api/client/${clientId}?t=${Date.now()}`, { cache: 'no-store' });
-      
+      const response = await fetch(`/api/clients/${clientId}`);
       if (!response.ok) {
         throw new Error('Client not found');
       }
-      
       const data = await response.json();
       setClient(data);
     } catch (err) {
       setError(err.message);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   };
 
-  const fetchOverallPrompt = async () => {
+  const fetchChats = async () => {
     try {
-      const response = await fetch(`/api/client/${clientId}/overall-prompt`);
+      const response = await fetch(`/api/clients/${clientId}/chats`);
       if (response.ok) {
         const data = await response.json();
-        setOverallPromptData(data);
+        setChats(data);
+        // Auto-select first chat if available
+        if (data.length > 0 && !selectedChatId) {
+          setSelectedChatId(data[0].chat_id);
+        }
       }
     } catch (err) {
-      console.error('Error fetching overall prompt:', err);
+      console.error('Error fetching chats:', err);
     }
   };
 
-  const fetchClientVoice = async () => {
+  const fetchMessages = async (chatId) => {
     try {
-      const resp = await fetch(`/api/client/${clientId}/voice`);
-      if (resp.ok) {
-        const data = await resp.json();
-        setClientVoiceId(data.voice_id || '');
+      const response = await fetch(`/api/chats/${chatId}/messages`);
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(prev => ({ ...prev, [chatId]: data }));
       }
     } catch (err) {
-      // ignore
+      console.error('Error fetching messages:', err);
     }
   };
 
-  const generateMainPrompt = (assets) => {
-    const now = new Date();
-    const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const nytd = now.toLocaleString("en-US", { timeZone: "America/New_York", weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'});
-    const latd = now.toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'});
-    const sytd = now.toLocaleString("en-US", { timeZone: "Australia/Sydney", weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'});
-    
-    
-    // Helper function to escape quotes and clean text for HTML attribute
-    const escapeForAttribute = (text) => {
-      if (!text) return "";
-      return text
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\n/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    };
-    
-    // Use the custom or default overall prompt template
-    let prompt = overallPromptData.overall_prompt || "";
-    
-    // Replace placeholders
-    prompt = prompt
-      .replace(/{day_of_week}/g, daysOfWeek[now.getUTCDay()])
-      .replace(/{current_datetime_utc}/g, now.toISOString().replace("T",", ").replace("Z"," in UTC"))
-      .replace(/{current_datetime_ny}/g, nytd)
-      .replace(/{current_datetime_la}/g, latd)
-      .replace(/{current_datetime_sydney}/g, sytd)
-      .replace(/{background}/g, assets.background || "")
-      .replace(/{rules}/g, assets.rules || "")
-      .replace(/{script}/g, assets.script || "")
-      .replace(/{faqs}/g, assets.faqs || "");
-    
-    
-    // Return escaped prompt for use in HTML attribute
-    return escapeForAttribute(prompt);
-  };
-
-  const initializeWidget = async () => {
-    if (!widgetContainerRef.current || !client) return;
-
-    // Clear existing widget
-    widgetContainerRef.current.innerHTML = '';
-
-    // Generate main prompt using client's prompts data
-    const mainPrompt = generateMainPrompt(client.prompts);
-
-    // Fetch signed URL from backend for security
-    let signedUrl = '';
+  const handleCreateChat = async (title) => {
     try {
-      const url = clientVoiceId ? `/api/signed-url?voice_id=${encodeURIComponent(clientVoiceId)}` : `/api/signed-url`;
-      const resp = await fetch(url);
-      if (resp.ok) {
-        const data = await resp.json();
-        signedUrl = data?.signed_url || '';
+      const response = await fetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          title: title
+        }),
+      });
+
+      if (response.ok) {
+        const newChat = await response.json();
+        setChats(prev => [newChat, ...prev]);
+        setSelectedChatId(newChat.chat_id);
+        return newChat;
+      } else {
+        const error = await response.json();
+        throw new Error(error.detail || 'Unknown error');
       }
-    } catch (e) {
-      // Non-fatal; widget can still attempt without signed url
+    } catch (err) {
+      console.error('Error creating chat:', err);
+      alert(`Error creating chat: ${err.message}`);
+      throw err;
+    }
+  };
+
+  const handleDeleteChat = async (chatId, e) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this chat?')) {
+      return;
     }
 
-    // Create ElevenLabs widget element with all attributes
-    const widget = document.createElement('elevenlabs-convai');
-    if (signedUrl) {
-      widget.setAttribute('signed-url', signedUrl);
+    try {
+      const response = await fetch(`/api/chats/${chatId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setChats(prev => prev.filter(chat => chat.chat_id !== chatId));
+        if (selectedChatId === chatId) {
+          setSelectedChatId(null);
+          setMessages(prev => {
+            const newMessages = { ...prev };
+            delete newMessages[chatId];
+            return newMessages;
+          });
+        }
+      } else {
+        const error = await response.json();
+        alert(`Error deleting chat: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Error deleting chat:', err);
+      alert('Error deleting chat. Please try again.');
     }
-    widget.setAttribute('override-prompt', mainPrompt);
-    widget.setAttribute('override-first-message', 'Hello! How can I help you today?');
-    if (clientVoiceId) {
-      widget.setAttribute('override-voice-id', clientVoiceId);
+  };
+
+  const handleSendMessage = async (messageText) => {
+    if (!selectedChatId) {
+      return;
     }
-    widget.setAttribute('avatar-orb-color-1', '#667eea');
-    widget.setAttribute('avatar-orb-color-2', '#764ba2');
-    
-    widgetContainerRef.current.appendChild(widget);
+
+    try {
+      const response = await fetch('/api/chats/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: selectedChatId,
+          message: messageText
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh messages
+        await fetchMessages(selectedChatId);
+      } else {
+        const error = await response.json();
+        throw new Error(error.detail || 'Unknown error');
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+      alert(`Error sending message: ${err.message}`);
+      throw err;
+    }
   };
 
   if (loading) {
@@ -186,37 +173,60 @@ function ClientPage() {
         <div className="error-container">
           <h2>Error</h2>
           <p>{error}</p>
+          <button onClick={() => navigate('/')} className="secondary-btn">
+            ← Back to Home
+          </button>
         </div>
       </div>
     );
   }
 
+  const currentMessages = selectedChatId ? (messages[selectedChatId] || []) : [];
+
   return (
     <div className="client-page">
       <div className="client-header">
         <div>
-          <h1>{client?.company_name || 'Client Agent'}</h1>
-          {overallPromptData?.is_custom && (
-            <span className="custom-prompt-badge">● Custom Prompt Active</span>
-          )}
+          <h1>{client?.company_name || 'Client'}</h1>
+          <p className="client-url">{client?.website_url}</p>
         </div>
         <div className="header-actions">
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => navigate('/')}
             className="secondary-btn"
           >
             ← Back
           </button>
         </div>
       </div>
-      
-      <div ref={widgetContainerRef}>
-        {/* ElevenLabs widget will be inserted here when prompts are ready */}
-      </div>
 
+      <div className="client-content">
+        <ChatSidebar
+          chats={chats}
+          selectedChatId={selectedChatId}
+          onSelectChat={setSelectedChatId}
+          onDeleteChat={handleDeleteChat}
+          onCreateChat={handleCreateChat}
+        />
+
+        <div className="chat-main">
+          {selectedChatId ? (
+            <>
+              <ChatMessages messages={currentMessages} />
+              <MessageInput
+                onSendMessage={handleSendMessage}
+                disabled={!selectedChatId}
+              />
+            </>
+          ) : (
+            <div className="no-chat-selected">
+              <p>Select a chat from the sidebar or create a new one to start chatting.</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
 export default ClientPage;
-
