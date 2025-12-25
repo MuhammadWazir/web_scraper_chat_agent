@@ -1,41 +1,20 @@
 from fastapi import APIRouter, HTTPException
-from services.clients_service import (
-	create_chat_agent_service,
-	get_all_clients_service,
-	get_client_by_url_slug_service,
-	get_client_voice_service,
-	update_client_voice_service,
-)
-from dtos.chat_agent import ChatAgentRequest, ChatAgentResponse
-from dtos.voice import VoiceUpdate
-
+from services.rag_pipeline_service import RAGPipeline
+from dtos.create_client_dto import CreateClientDTO
+from dtos.query_client_dto import QueryClientDTO
 router = APIRouter(prefix="", tags=["clients"])
 
 
-@router.get("/clients")
-async def get_all_clients():
-	"""Get all clients"""
-	return get_all_clients_service()
+@router.post("/create-client", response_model=CreateClientDTO)
+async def create_client(request: CreateClientDTO):
+	rag_pipeline = RAGPipeline()
+	await rag_pipeline.build(request.website_url, request.company_name)
+	return True
 
-
-@router.get("/client/{client_id}")
-async def get_client(client_id: str):
-	client_data = get_client_by_url_slug_service(client_id)
-	if not client_data:
-		raise HTTPException(status_code=404, detail="Client not found")
-	return client_data
-
-@router.post("/create-chat-agent", response_model=ChatAgentResponse)
-async def create_chat_agent(request: ChatAgentRequest):
-	result = await create_chat_agent_service(
-		website_url=str(request.website_url),
-		target_audience=request.target_audience,
-		company_name=request.company_name,
-	)
-	return ChatAgentResponse(
-		client_id=result["client_id"],
-		url=result["url_slug"],
-	)
-
+@router.post("/query-client", response_model=str)
+async def query_client(request: QueryClientDTO):
+	rag_pipeline = RAGPipeline()
+	response = await rag_pipeline.query(request.question, request.company_name)
+	return response
 
 

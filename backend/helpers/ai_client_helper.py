@@ -1,12 +1,6 @@
 import asyncio
 from openai import AsyncOpenAI
 from configs.config import load_settings
-from configs.constants import (
-    BACKGROUND_CONTEXT_PROMPT, 
-    RULES_SECTION_PROMPT,
-    FAQS_SECTION_PROMPT, 
-    SCRIPT_CREATION_PROMPT
-)
 
 config = load_settings()
 
