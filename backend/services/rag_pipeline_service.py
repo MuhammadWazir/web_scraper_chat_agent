@@ -25,8 +25,7 @@ class RAGPipeline:
         vector_store = VectorStore(self.embeddings.get_embeddings(), persist_dir=PERSIST_DIR)
         self.vectorstore = vector_store.create_store(documents=chunks, collection_name=company_name)
 
-    async def query(self, question: str, company_name: str) -> str:
-        """Query a previously built collection."""
+    async def query(self, question: str, company_name: str, chat_history: list = None) -> str:
         if self.vectorstore is None:
             store = VectorStore(self.embeddings.get_embeddings(), persist_dir=PERSIST_DIR)
             self.vectorstore = store.load_store(collection_name=company_name)
@@ -36,6 +35,6 @@ class RAGPipeline:
             search_kwargs={"k": 3}
         )
         generator = ResponseGenerationService(self.async_client)
-        qa_chain = generator.create_chain(retriever)
+        qa_chain = generator.create_chain(retriever, chat_history=chat_history, company_name = company_name)
         result = await qa_chain.arun(question)
         return result

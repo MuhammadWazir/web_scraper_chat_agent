@@ -1,52 +1,30 @@
 import React, { useState } from 'react';
 import './ChatSidebar.css';
 
-function ChatSidebar({ chats, selectedChatId, onSelectChat, onDeleteChat, onCreateChat }) {
-  const [newChatTitle, setNewChatTitle] = useState('');
-  const [creatingChat, setCreatingChat] = useState(false);
+function ChatSidebar({ chats, selectedChatId, onSelectChat, onDeleteChat, onNewChat }) {
+  const [showMenuFor, setShowMenuFor] = useState(null);
 
-  const handleCreateChat = async () => {
-    if (!newChatTitle.trim()) {
-      alert('Please enter a chat title');
-      return;
-    }
+  const handleMenuClick = (e, chatId) => {
+    e.stopPropagation();
+    setShowMenuFor(showMenuFor === chatId ? null : chatId);
+  };
 
-    try {
-      setCreatingChat(true);
-      await onCreateChat(newChatTitle);
-      setNewChatTitle('');
-    } catch (error) {
-      console.error('Error creating chat:', error);
-    } finally {
-      setCreatingChat(false);
-    }
+  const handleDelete = (e, chatId) => {
+    e.stopPropagation();
+    setShowMenuFor(null);
+    onDeleteChat(chatId, e);
   };
 
   return (
     <div className="chats-sidebar">
       <div className="sidebar-header">
-        <h2>Chats</h2>
-        <div className="new-chat-form">
-          <input
-            type="text"
-            placeholder="New chat title..."
-            value={newChatTitle}
-            onChange={(e) => setNewChatTitle(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleCreateChat()}
-            disabled={creatingChat}
-          />
-          <button
-            onClick={handleCreateChat}
-            disabled={creatingChat || !newChatTitle.trim()}
-            className="create-chat-btn"
-          >
-            {creatingChat ? 'Creating...' : 'New Chat'}
-          </button>
-        </div>
+        <button className="new-chat-button" onClick={onNewChat}>
+          + New Chat
+        </button>
       </div>
       <div className="chats-list">
         {chats.length === 0 ? (
-          <p className="empty-state">No chats yet. Create one to get started!</p>
+          <p className="empty-state">No chats yet. Send a message to start!</p>
         ) : (
           chats.map((chat) => (
             <div
@@ -55,18 +33,27 @@ function ChatSidebar({ chats, selectedChatId, onSelectChat, onDeleteChat, onCrea
               onClick={() => onSelectChat(chat.chat_id)}
             >
               <div className="chat-item-content">
-                <h3>{chat.title || 'Untitled Chat'}</h3>
-                <p className="chat-meta">
-                  {new Date(chat.created_at).toLocaleDateString()}
-                </p>
+                <h3>{chat.title || 'New Chat'}</h3>
               </div>
-              <button
-                className="delete-chat-btn"
-                onClick={(e) => onDeleteChat(chat.chat_id, e)}
-                title="Delete chat"
-              >
-                ×
-              </button>
+              <div className="chat-item-actions">
+                <button
+                  className="menu-btn"
+                  onClick={(e) => handleMenuClick(e, chat.chat_id)}
+                  title="Menu"
+                >
+                  ⋮
+                </button>
+                {showMenuFor === chat.chat_id && (
+                  <div className="menu-dropdown" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="delete-menu-btn"
+                      onClick={(e) => handleDelete(e, chat.chat_id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           ))
         )}
@@ -76,4 +63,3 @@ function ChatSidebar({ chats, selectedChatId, onSelectChat, onDeleteChat, onCrea
 }
 
 export default ChatSidebar;
-
