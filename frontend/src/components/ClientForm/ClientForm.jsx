@@ -5,7 +5,6 @@ function ClientForm({ onClientCreated }) {
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState({
     website_url: '',
-    target_audience: '',
     company_name: ''
   });
 
@@ -19,14 +18,14 @@ function ClientForm({ onClientCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.website_url || !formData.target_audience || !formData.company_name) {
+    if (!formData.website_url || !formData.company_name) {
       return;
     }
 
     try {
       setCreating(true);
       
-      const response = await fetch('/api/create-voice-agent', {
+      const response = await fetch('/api/create-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -34,13 +33,15 @@ function ClientForm({ onClientCreated }) {
 
       if (response.ok) {
         const result = await response.json();
-        setFormData({ website_url: '', target_audience: '', company_name: '' });
+        setFormData({ website_url: '', company_name: '' });
         if (onClientCreated) onClientCreated();
-        
-        window.location.href = `/client/${result.url}`;
+      } else {
+        const error = await response.json();
+        alert(`Error creating client: ${error.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error creating client:', error);
+      alert('Error creating client. Please try again.');
     } finally {
       setCreating(false);
     }
@@ -60,6 +61,7 @@ function ClientForm({ onClientCreated }) {
             onChange={handleInputChange}
             placeholder="Enter company name"
             disabled={creating}
+            required
           />
         </div>
 
@@ -73,19 +75,7 @@ function ClientForm({ onClientCreated }) {
             onChange={handleInputChange}
             placeholder="https://example.com"
             disabled={creating}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="target_audience">Target Audience</label>
-          <input
-            type="text"
-            id="target_audience"
-            name="target_audience"
-            value={formData.target_audience}
-            onChange={handleInputChange}
-            placeholder="e.g., businesses, consumers, developers"
-            disabled={creating}
+            required
           />
         </div>
 
@@ -93,7 +83,7 @@ function ClientForm({ onClientCreated }) {
           {creating ? (
             <>
               <span className="spinner"></span>
-              Creating Agent...
+              Creating Client...
             </>
           ) : (
             'Create Client'
@@ -105,4 +95,3 @@ function ClientForm({ onClientCreated }) {
 }
 
 export default ClientForm;
-
