@@ -1,7 +1,7 @@
 [project]
-name = "web-scraper-voice-agent"
+name = "web-scraper-chat-agent"
 version = "0.1.0"
-description = "A web scraper with voice agent capabilities"
+description = "A web scraper with chat agent capabilities"
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
@@ -17,16 +17,17 @@ dependencies = [
     "langchain_openai>=0.1.103",
     "langchain>=0.3.2,<0.4.0",
     "langchain_community>=0.1.0",
-    "chromadb>=0.4.3",
+    "qdrant-client>=1.16.2",
     "transformers>=4.40.0",
     "torch>=2.1.0",
     "accelerate>=0.23.0",
     "sentence-transformers>=2.2.2",
     "alembic>=1.13.0",
     "sqlalchemy>=2.0.0",
-    "psycopg2-binary>=2.9.0"
+    "psycopg2-binary>=2.9.0",
+    "dependency-injector>=4.41.0"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [build-system]
 requires = ["hatchling"]
