@@ -1,1 +1,0 @@
-PERSIST_DIR = "./chroma_db"
