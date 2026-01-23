@@ -1,8 +1,8 @@
+from datetime import datetime, timezone
 from typing import List
 from src.domain.entities.chat import Chat
 from src.domain.abstractions.repositories.widget_session_repository import IWidgetSessionRepository
 from src.domain.abstractions.repositories.chat_repository import IChatRepository
-
 
 class GetWidgetChatsUseCase:
     def __init__(
@@ -20,11 +20,13 @@ class GetWidgetChatsUseCase:
         if widget_session is None:
             raise ValueError("Invalid session token")
         
-        if not widget_session.validate(end_user_ip):
-            raise ValueError("Session validation failed")
+        if widget_session.expires_at < datetime.now(timezone.utc):
+            raise ValueError("Session token has expired")
         
-        # Get all chats for this client
-        chats = self.chat_repository.get_by_client_id(widget_session.client_id)
+        if widget_session.end_user_ip is not None and widget_session.end_user_ip != end_user_ip:
+             raise ValueError("Session validation failed")
+        
+        chats = self.chat_repository.get_by_client_id(widget_session.client_ip)
         
         # Filter by end-user IP
         filtered_chats = [chat for chat in chats if chat.ip_address == end_user_ip]

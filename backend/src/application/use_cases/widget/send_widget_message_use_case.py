@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
+import uuid
 from src.domain.abstractions.repositories.widget_session_repository import IWidgetSessionRepository
 from src.domain.abstractions.repositories.chat_repository import IChatRepository
 from src.domain.abstractions.repositories.message_repository import IMessageRepository
 from src.domain.abstractions.repositories.client_repository import IClientRepository
-from src.infrastructure.services.RagService import RAGService
-from src.infrastructure.services.ChatTitleService import ChatTitleService
+from src.domain.abstractions.services.rag_service import IRAGService
+from src.domain.abstractions.services.chat_title_service import IChatTitleService
 from src.domain.entities.message import Message
 
 
@@ -14,8 +16,8 @@ class SendWidgetMessageUseCase:
         chat_repository: IChatRepository,
         message_repository: IMessageRepository,
         client_repository: IClientRepository,
-        rag_service: RAGService,
-        chat_title_service: ChatTitleService
+        rag_service: IRAGService,
+        chat_title_service: IChatTitleService
     ):
         self.widget_session_repository = widget_session_repository
         self.chat_repository = chat_repository
@@ -31,7 +33,7 @@ class SendWidgetMessageUseCase:
         if widget_session is None:
             raise ValueError("Invalid session token")
         
-        if not widget_session.validate(end_user_ip):
+        if widget_session.expires_at < datetime.now(timezone.utc) or widget_session.end_user_ip != end_user_ip:
             raise ValueError("Session validation failed")
         
         # Verify chat exists and belongs to this user
@@ -43,29 +45,64 @@ class SendWidgetMessageUseCase:
             raise ValueError("Unauthorized access to chat")
         
         # Get client for RAG context
-        client = self.client_repository.get_by_id(chat.client_id)
+        client = self.client_repository.get_by_id(chat.client_ip)
         if client is None:
             raise ValueError("Client not found")
+            
+        # Check if this is the first message (for title generation)
+        existing_messages = self.message_repository.get_by_chat_id(chat.chat_id)
+        is_first_message = len(existing_messages) == 0
         
-        # Create user message
-        user_message = Message.create_user_message(chat_id, content)
-        self.message_repository.create(user_message)
+        # Get recent messages for chat history (last 6 messages)
+        recent_messages = existing_messages[-6:] if len(existing_messages) >= 6 else existing_messages
         
-        # Generate AI response using RAG
-        ai_response = await self.rag_service.generate_response(
-            client_id=client.client_id,
-            query=content
+        # Pair consecutive user-AI messages for chat history
+        chat_history = []
+        i = 0
+        while i < len(recent_messages) - 1:
+            role_i = "assistant" if (hasattr(recent_messages[i], 'ai_generated') and recent_messages[i].ai_generated) or (hasattr(recent_messages[i], 'role') and recent_messages[i].role == 'assistant') else "user"
+            role_next = "assistant" if (hasattr(recent_messages[i+1], 'ai_generated') and recent_messages[i+1].ai_generated) or (hasattr(recent_messages[i+1], 'role') and recent_messages[i+1].role == 'assistant') else "user"
+            
+            if role_i == "user" and role_next == "assistant":
+                chat_history.append({
+                    "user": recent_messages[i].content,
+                    "assistant": recent_messages[i + 1].content
+                })
+                i += 2
+            else:
+                i += 1
+        
+        # Save user message
+        now = datetime.now(timezone.utc)
+        user_message_entity = Message(
+            message_id=str(uuid.uuid4()),
+            chat_id=chat_id,
+            content=content,
+            ai_generated=False,
+            created_at=now,
+            updated_at=now
+        )
+        user_message = self.message_repository.create(user_message_entity)
+        
+        if is_first_message:
+            title = await self.chat_title_service.generate_title(content)
+            updated_chat = chat.model_copy(update={"title": title, "updated_at": datetime.now(timezone.utc)})
+            self.chat_repository.update(updated_chat)
+        
+        ai_response = await self.rag_service.query(
+            question=content, 
+            company_name=client.client_name, 
+            chat_history=chat_history
         )
         
-        # Create AI message
-        ai_message = Message.create_ai_message(chat_id, ai_response)
-        created_ai_message = self.message_repository.create(ai_message)
-        
-        # Update chat title if first message
-        messages = self.message_repository.get_by_chat_id(chat_id)
-        if len(messages) <= 2:  # User + AI message
-            title = await self.chat_title_service.generate_title(content, ai_response)
-            chat.title = title
-            self.chat_repository.update(chat)
+        ai_message_entity = Message(
+            message_id=str(uuid.uuid4()),
+            chat_id=chat_id,
+            content=ai_response,
+            ai_generated=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        created_ai_message = self.message_repository.create(ai_message_entity)
         
         return created_ai_message

@@ -1,4 +1,3 @@
-"""Send message use case - with dependency injection"""
 from src.domain.abstractions.repositories.message_repository import IMessageRepository
 from src.domain.abstractions.repositories.chat_repository import IChatRepository
 from src.domain.abstractions.repositories.client_repository import IClientRepository

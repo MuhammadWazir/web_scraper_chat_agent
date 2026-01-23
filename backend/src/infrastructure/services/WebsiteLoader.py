@@ -28,7 +28,7 @@ class WebsiteLoaderService:
             return []
         
         # Summarize the chunks using LLM client
-        summarized_content = await self.llm_client.summarize_chunks_in_parallel(chunks, "gpt-4o")
+        summarized_content = await self.llm_client.summarize_chunks_in_parallel(chunks, "gpt-5-mini")
         
         if not summarized_content:
             return []

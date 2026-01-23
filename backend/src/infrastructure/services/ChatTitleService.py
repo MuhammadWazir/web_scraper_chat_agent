@@ -12,7 +12,7 @@ class ChatTitleService(IChatTitleService):
     async def generate_title(self, first_message: str) -> str:
         """Generate a short title (max 20 chars) from the first message"""
         response = await self.llm_client.create_completion(
-            model="gpt-4o",
+            model="gpt-5-mini",
             messages=[
                 {
                     "role": "system",
@@ -23,7 +23,6 @@ class ChatTitleService(IChatTitleService):
                     "content": first_message
                 }
             ],
-            temperature=0.7,
             max_tokens=20
         )
         

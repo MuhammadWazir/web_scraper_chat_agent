@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+import uuid
 from src.domain.entities.chat import Chat
 from src.domain.abstractions.repositories.widget_session_repository import IWidgetSessionRepository
 from src.domain.abstractions.repositories.chat_repository import IChatRepository
@@ -16,24 +18,26 @@ class CreateWidgetChatUseCase:
         self.client_repository = client_repository
     
     def execute(self, session_token: str, end_user_ip: str) -> Chat:
-        # Validate session
         widget_session = self.widget_session_repository.get_by_token(session_token)
         
         if widget_session is None:
             raise ValueError("Invalid session token")
         
-        if not widget_session.validate(end_user_ip):
+        if widget_session.expires_at < datetime.now(timezone.utc) or widget_session.end_user_ip != end_user_ip:
             raise ValueError("Session validation failed")
         
-        # Verify client exists
-        client = self.client_repository.get_by_id(widget_session.client_id)
+        client = self.client_repository.get_by_id(widget_session.client_ip)
         if client is None:
-            raise ValueError(f"Client {widget_session.client_id} not found")
+            raise ValueError(f"Client {widget_session.client_ip} not found")
         
-        # Create chat
-        chat = Chat.create_new(
-            client_id=widget_session.client_id,
-            ip_address=end_user_ip
+        now = datetime.now(timezone.utc)
+        chat = Chat(
+            chat_id=str(uuid.uuid4()),
+            client_ip=widget_session.client_ip,
+            ip_address=end_user_ip,
+            title=None,
+            created_at=now,
+            updated_at=now
         )
         
         created_chat = self.chat_repository.create(chat)

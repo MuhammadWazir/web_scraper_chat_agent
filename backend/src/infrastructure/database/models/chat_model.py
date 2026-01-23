@@ -1,4 +1,3 @@
-"""Chat ORM model - SQLAlchemy implementation"""
 from sqlalchemy import Column, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -6,11 +5,10 @@ from src.infrastructure.database.config import Base
 
 
 class ChatModel(Base):
-    """SQLAlchemy ORM model for Chat"""
     __tablename__ = "chats"
 
     chat_id = Column(String, primary_key=True, index=True)
-    client_id = Column(String, ForeignKey("clients.client_id", ondelete="CASCADE"), nullable=False, index=True)
+    client_ip = Column(String, ForeignKey("clients.client_ip", ondelete="CASCADE"), nullable=False, index=True)
     ip_address = Column(String, nullable=False)
     title = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

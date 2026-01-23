@@ -8,7 +8,8 @@ from src.application.use_cases.widget.create_widget_chat_use_case import CreateW
 from src.application.use_cases.widget.delete_widget_chat_use_case import DeleteWidgetChatUseCase
 from src.application.use_cases.widget.send_widget_message_use_case import SendWidgetMessageUseCase
 from src.application.dtos.responses.chat_response import ChatResponse
-from src.infrastructure.utils.request_utils import get_client_ip
+from src.presentation.utils.request_utils import get_client_ip
+from src.application.dtos.requests.send_widget_message_request import SendWidgetMessageRequest
 
 
 router = APIRouter(prefix="/widget", tags=["widget"])
@@ -45,7 +46,7 @@ async def get_widget_chats(
         return [
             ChatResponse(
                 chat_id=chat.chat_id,
-                client_id=chat.client_id,
+                client_ip=chat.client_ip,
                 title=chat.title,
                 created_at=chat.created_at
             )
@@ -69,7 +70,7 @@ async def create_widget_chat(
         
         return ChatResponse(
             chat_id=chat.chat_id,
-            client_id=chat.client_id,
+            client_ip=chat.client_ip,
             title=chat.title,
             created_at=chat.created_at
         )
@@ -104,13 +105,13 @@ async def delete_widget_chat(
 async def send_widget_message(
     session_token: str,
     chat_id: str,
-    message: Dict[str, str],
+    request: SendWidgetMessageRequest,
     http_request: Request,
     use_case: SendWidgetMessageUseCase = Depends(lambda: container.send_widget_message_use_case())
 ):
     try:
         end_user_ip = get_client_ip(http_request)
-        content = message.get("content", "")
+        content = request.content
         
         result = await use_case.execute(session_token, chat_id, content, end_user_ip)
         

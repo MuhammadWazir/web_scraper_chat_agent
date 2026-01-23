@@ -1,5 +1,6 @@
 """OpenAI LLM client implementation"""
 from typing import List, Dict, Optional, AsyncIterator, Any, Tuple
+from src.domain.utils.chat_formatter import format_chat_history_tuples
 from openai import AsyncOpenAI
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
@@ -14,46 +15,48 @@ class LLMClient(AbstractLLMClient):
     def __init__(self):
         settings = load_settings()
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.default_model = "gpt-4o"
+        self.default_model = "gpt-5-mini"
         self.default_embedding_model = "text-embedding-3-small"
 
     async def create_completion(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
-        temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,
         **kwargs
     ) -> Any:
-        """Create a chat completion"""
-        response = await self.client.chat.completions.create(
-            model=model or self.default_model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stream=stream,
+        params = {
+            "model": model or self.default_model,
+            "messages": messages,
+            "stream": stream,
             **kwargs
-        )
+        }
+        if max_tokens is not None:
+            params["max_tokens"] = max_tokens
+        
+        response = await self.client.chat.completions.create(**params)
         return response
 
     async def create_streaming_completion(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
-        temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs
     ) -> AsyncIterator[str]:
-        """Create a streaming chat completion"""
-        stream = await self.client.chat.completions.create(
-            model=model or self.default_model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stream=True,
+        params = {
+            "model": model or self.default_model,
+            "messages": messages,
+            "stream": True,
             **kwargs
-        )
+        }
+        
+        # Only include max_tokens if it has a value
+        if max_tokens is not None:
+            params["max_tokens"] = max_tokens
+        
+        stream = await self.client.chat.completions.create(**params)
         
         async for chunk in stream:
             if chunk.choices[0].delta.content:
@@ -109,14 +112,7 @@ class LLMClient(AbstractLLMClient):
 
     def _format_chat_history(self, chat_history: List[Tuple[str, str]]) -> str:
         """Format chat history as a conversation string"""
-        if not chat_history:
-            return ""
-        
-        formatted = "\n\nPrevious conversation:\n"
-        for user_msg, ai_msg in chat_history:
-            formatted += f"User: {user_msg}\n"
-            formatted += f"Assistant: {ai_msg}\n"
-        return formatted
+        return format_chat_history_tuples(chat_history)
 
     def create_chain(
         self,
@@ -142,8 +138,7 @@ Helpful Answer:"""
 
         settings = load_settings()
         model = ChatOpenAI(
-            model="gpt-4o",
-            temperature=0.2,
+            model="gpt-5-mini",
             api_key=settings.openai_api_key
         )
 
