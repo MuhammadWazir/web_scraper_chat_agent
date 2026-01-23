@@ -12,6 +12,7 @@ class ClientModel(Base):
     client_id = Column(String, primary_key=True, index=True)
     client_name = Column(String, nullable=False)
     client_url = Column(String, nullable=False)
+    api_key_hash = Column(String(255), unique=True, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

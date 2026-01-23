@@ -6,15 +6,25 @@ from src.infrastructure.database.config import SessionLocal
 from src.infrastructure.database.repositories.client_repository_impl import ClientRepositoryImpl
 from src.infrastructure.database.repositories.chat_repository_impl import ChatRepositoryImpl
 from src.infrastructure.database.repositories.message_repository_impl import MessageRepositoryImpl
+from src.infrastructure.database.repositories.widget_session_repository_impl import WidgetSessionRepositoryImpl
 from src.infrastructure.services.RagService import RAGService
 from src.infrastructure.services.ChatTitleService import ChatTitleService
 
 from src.application.use_cases.client.create_client_use_case import CreateClientUseCase
+from src.application.use_cases.client.get_client_use_case import GetClientUseCase
+from src.application.use_cases.client.get_all_clients_use_case import GetAllClientsUseCase
 from src.application.use_cases.chat.create_chat_use_case import CreateChatUseCase
 from src.application.use_cases.chat.get_client_chats_use_case import GetClientChatsUseCase
 from src.application.use_cases.chat.delete_chat_use_case import DeleteChatUseCase
 from src.application.use_cases.message.send_message_use_case import SendMessageUseCase
 from src.application.use_cases.message.get_chat_messages_use_case import GetChatMessagesUseCase
+from src.application.use_cases.widget.generate_widget_url_use_case import GenerateWidgetUrlUseCase
+from src.application.use_cases.widget.initialize_widget_session_use_case import InitializeWidgetSessionUseCase
+from src.application.use_cases.widget.validate_widget_session_use_case import ValidateWidgetSessionUseCase
+from src.application.use_cases.widget.get_widget_chats_use_case import GetWidgetChatsUseCase
+from src.application.use_cases.widget.create_widget_chat_use_case import CreateWidgetChatUseCase
+from src.application.use_cases.widget.delete_widget_chat_use_case import DeleteWidgetChatUseCase
+from src.application.use_cases.widget.send_widget_message_use_case import SendWidgetMessageUseCase
 
 
 class Container(containers.DeclarativeContainer):
@@ -39,6 +49,11 @@ class Container(containers.DeclarativeContainer):
     
     message_repository = providers.Factory(
         MessageRepositoryImpl,
+        db=db_session
+    )
+    
+    widget_session_repository = providers.Factory(
+        WidgetSessionRepositoryImpl,
         db=db_session
     )
     
@@ -84,3 +99,59 @@ class Container(containers.DeclarativeContainer):
         GetChatMessagesUseCase,
         message_repository=message_repository
     )
+    
+    get_client_use_case = providers.Factory(
+        GetClientUseCase,
+        client_repository=client_repository
+    )
+    
+    get_all_clients_use_case = providers.Factory(
+        GetAllClientsUseCase,
+        client_repository=client_repository
+    )
+    
+    generate_widget_url_use_case = providers.Factory(
+        GenerateWidgetUrlUseCase,
+        widget_session_repository=widget_session_repository,
+        client_repository=client_repository
+    )
+    
+    initialize_widget_session_use_case = providers.Factory(
+        InitializeWidgetSessionUseCase,
+        widget_session_repository=widget_session_repository
+    )
+    
+    validate_widget_session_use_case = providers.Factory(
+        ValidateWidgetSessionUseCase,
+        widget_session_repository=widget_session_repository
+    )
+    
+    get_widget_chats_use_case = providers.Factory(
+        GetWidgetChatsUseCase,
+        widget_session_repository=widget_session_repository,
+        chat_repository=chat_repository
+    )
+    
+    create_widget_chat_use_case = providers.Factory(
+        CreateWidgetChatUseCase,
+        widget_session_repository=widget_session_repository,
+        chat_repository=chat_repository,
+        client_repository=client_repository
+    )
+    
+    delete_widget_chat_use_case = providers.Factory(
+        DeleteWidgetChatUseCase,
+        widget_session_repository=widget_session_repository,
+        chat_repository=chat_repository
+    )
+    
+    send_widget_message_use_case = providers.Factory(
+        SendWidgetMessageUseCase,
+        widget_session_repository=widget_session_repository,
+        chat_repository=chat_repository,
+        message_repository=message_repository,
+        client_repository=client_repository,
+        rag_service=rag_service,
+        chat_title_service=chat_title_service
+    )
+
