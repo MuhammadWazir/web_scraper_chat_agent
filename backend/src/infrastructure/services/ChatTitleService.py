@@ -22,8 +22,7 @@ class ChatTitleService(IChatTitleService):
                     "role": "user",
                     "content": first_message
                 }
-            ],
-            max_tokens=20
+            ]
         )
         
         title = response.choices[0].message.content.strip()

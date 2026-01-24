@@ -6,7 +6,7 @@ import MessageInput from '../../components/MessageInput/MessageInput';
 import './ClientPage.css';
 
 function ClientPage() {
-  const { clientId } = useParams();
+  const { clientIp } = useParams();
   const navigate = useNavigate();
   const [client, setClient] = useState(null);
   const [chats, setChats] = useState([]);
@@ -20,7 +20,7 @@ function ClientPage() {
   useEffect(() => {
     fetchClient();
     fetchChats();
-  }, [clientId]);
+  }, [clientIp]);
 
   useEffect(() => {
     if (selectedChatId) {
@@ -30,7 +30,7 @@ function ClientPage() {
 
   const fetchClient = async () => {
     try {
-      const response = await fetch(`/api/clients/${clientId}`);
+      const response = await fetch(`/api/clients/${clientIp}`);
       if (!response.ok) {
         throw new Error('Client not found');
       }
@@ -45,7 +45,7 @@ function ClientPage() {
 
   const fetchChats = async () => {
     try {
-      const response = await fetch(`/api/clients/${clientId}/chats`);
+      const response = await fetch(`/api/clients/${clientIp}/chats`);
       if (response.ok) {
         const data = await response.json();
         setChats(data);
@@ -65,7 +65,11 @@ function ClientPage() {
       const response = await fetch(`/api/chats/${chatId}/messages`);
       if (response.ok) {
         const data = await response.json();
-        setMessages(prev => ({ ...prev, [chatId]: data }));
+        const normalizedMessages = data.map(msg => ({
+          ...msg,
+          ai_generated: msg.ai_generated !== undefined ? msg.ai_generated : (msg.role === 'assistant')
+        }));
+        setMessages(prev => ({ ...prev, [chatId]: normalizedMessages }));
       }
     } catch (err) {
       console.error('Error fetching messages:', err);
@@ -145,14 +149,14 @@ function ClientPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: currentChatId && !currentChatId.startsWith('temp-') ? currentChatId : null,
-          client_id: clientId,
+          client_id: clientIp,
           message: messageText
         }),
       });
 
       if (response.ok) {
         const result = await response.json();
-        
+
         // Update chat list if new chat was created
         if (result.chat_id && result.chat_id !== selectedChatId) {
           const newChat = {
@@ -167,7 +171,7 @@ function ClientPage() {
         // Replace temp message with real messages or append to existing
         setMessages(prev => {
           const newMessages = { ...prev };
-          
+
           // Get temp messages if we were using a temp chat
           let messagesToPreserve = [];
           if (currentChatId && currentChatId.startsWith('temp-')) {
@@ -179,10 +183,10 @@ function ClientPage() {
             // We're adding to existing chat, get existing messages
             messagesToPreserve = newMessages[result.chat_id] || [];
           }
-          
+
           // Remove the temp user message if it exists
           const filteredMessages = messagesToPreserve.filter(m => m.message_id !== tempUserMessageId);
-          
+
           // Add real messages (append, don't replace)
           return {
             ...newMessages,
@@ -193,7 +197,7 @@ function ClientPage() {
             ]
           };
         });
-        
+
         // Clear temp chat ID
         setTempChatId(null);
       } else {
@@ -295,8 +299,8 @@ function ClientPage() {
         />
 
         <div className="chat-main">
-          <ChatMessages 
-            messages={currentMessages} 
+          <ChatMessages
+            messages={currentMessages}
             isTyping={isTyping}
             isEmpty={!displayChatId && currentMessages.length === 0}
           />

@@ -6,7 +6,7 @@ function ClientCard({ client }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/client/${client.client_id}`);
+    navigate(`/client/${client.client_ip}`);
   };
 
   return (

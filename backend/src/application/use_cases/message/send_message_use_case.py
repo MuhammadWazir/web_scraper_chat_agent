@@ -85,7 +85,7 @@ class SendMessageUseCase:
         # Generate title if this is the first message
         if is_first_message:
             title = await self.chat_title_service.generate_title(request.message)
-            chat.update_title(title)
+            chat = chat.model_copy(update={"title": title, "updated_at": datetime.now(timezone.utc)})
             self.chat_repository.update(chat)
         
         # Query RAG pipeline with chat history
