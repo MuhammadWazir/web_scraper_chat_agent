@@ -40,7 +40,7 @@ function Home() {
 
         <section className="clients-section">
           <h2>All Clients</h2>
-          
+
           {loading ? (
             <div className="loading">
               <div className="spinner"></div>
@@ -53,7 +53,7 @@ function Home() {
           ) : (
             <div className="clients-grid">
               {clients.map((client) => (
-                <ClientCard key={client.client_id} client={client} />
+                <ClientCard key={client.client_ip} client={client} />
               ))}
             </div>
           )}

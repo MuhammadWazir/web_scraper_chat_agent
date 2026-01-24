@@ -9,7 +9,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/client/:clientId" element={<ClientPage />} />
+        <Route path="/client/:clientIp" element={<ClientPage />} />
         <Route path="/prompts" element={<PromptEditor />} />
       </Routes>
     </Router>
