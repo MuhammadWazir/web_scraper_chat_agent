@@ -3,10 +3,10 @@ from dependency_injector import containers, providers
 from sqlalchemy.orm import Session
 
 from src.infrastructure.database.config import SessionLocal
-from src.infrastructure.database.repositories.client_repository_impl import ClientRepositoryImpl
-from src.infrastructure.database.repositories.chat_repository_impl import ChatRepositoryImpl
-from src.infrastructure.database.repositories.message_repository_impl import MessageRepositoryImpl
-from src.infrastructure.database.repositories.widget_session_repository_impl import WidgetSessionRepositoryImpl
+from src.infrastructure.database.repositories.client_repository import ClientRepository
+from src.infrastructure.database.repositories.chat_repository import ChatRepository
+from src.infrastructure.database.repositories.message_repository import MessageRepository
+from src.infrastructure.database.repositories.widget_session_repository import WidgetSessionRepository
 from src.infrastructure.services.RagService import RAGService
 from src.infrastructure.services.ChatTitleService import ChatTitleService
 
@@ -37,23 +37,23 @@ class Container(containers.DeclarativeContainer):
     db_session = providers.Factory(SessionLocal)
     
     # Repositories - scoped to database session
-    client_repository = providers.Factory(
-        ClientRepositoryImpl,
+    client_repository = providers.Singleton(
+        ClientRepository,
         db=db_session
     )
     
-    chat_repository = providers.Factory(
-        ChatRepositoryImpl,
+    chat_repository = providers.Singleton(
+        ChatRepository,
         db=db_session
     )
     
-    message_repository = providers.Factory(
-        MessageRepositoryImpl,
+    message_repository = providers.Singleton(
+        MessageRepository,
         db=db_session
     )
     
-    widget_session_repository = providers.Factory(
-        WidgetSessionRepositoryImpl,
+    widget_session_repository = providers.Singleton(
+        WidgetSessionRepository,
         db=db_session
     )
     

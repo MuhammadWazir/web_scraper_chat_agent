@@ -6,7 +6,7 @@ from src.domain.entities.client import Client
 from src.infrastructure.database.models.client_model import ClientModel
 
 
-class ClientRepositoryImpl(IClientRepository):
+class ClientRepository(IClientRepository):
     
     def __init__(self, db: Session):
         self.db = db

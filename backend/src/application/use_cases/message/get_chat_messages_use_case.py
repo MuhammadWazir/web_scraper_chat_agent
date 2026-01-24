@@ -18,7 +18,7 @@ class GetChatMessagesUseCase:
             MessageResponse(
                 message_id=message.message_id,
                 chat_id=message.chat_id,
-                role=message.role,
+                role="assistant" if message.ai_generated else "user",
                 content=message.content,
                 created_at=message.created_at
             )

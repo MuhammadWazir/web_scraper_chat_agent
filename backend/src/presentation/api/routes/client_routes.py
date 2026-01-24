@@ -8,7 +8,6 @@ from src.application.use_cases.client.get_all_clients_use_case import GetAllClie
 from src.application.use_cases.widget.generate_widget_url_use_case import GenerateWidgetUrlUseCase
 from src.application.dtos.requests.create_client_request import CreateClientRequest
 from src.application.dtos.responses.client_response import ClientResponse
-from src.presentation.utils.request_utils import get_client_ip
 
 
 router = APIRouter(prefix="", tags=["clients"])
@@ -23,8 +22,7 @@ async def create_client(
     use_case: CreateClientUseCase = Depends(lambda: container.create_client_use_case())
 ):
     try:
-        client_ip = get_client_ip(http_request)
-        result = await use_case.execute(request, client_ip)
+        result = await use_case.execute(request, http_request.client.host)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -72,10 +70,8 @@ async def generate_widget_url(
     use_case: GenerateWidgetUrlUseCase = Depends(lambda: container.generate_widget_url_use_case())
 ):
     try:
-        request_ip = get_client_ip(http_request)
-        
         # Verify the requesting IP matches the client_ip (basic auth)
-        if request_ip != client_ip:
+        if http_request.client.host != client_ip:
             raise HTTPException(status_code=403, detail="IP does not match client")
         
         session_token = use_case.execute(client_ip)

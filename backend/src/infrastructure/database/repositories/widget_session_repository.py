@@ -7,7 +7,7 @@ from src.domain.abstractions.repositories.widget_session_repository import IWidg
 from src.infrastructure.database.models.widget_session_model import WidgetSessionModel
 
 
-class WidgetSessionRepositoryImpl(IWidgetSessionRepository):
+class WidgetSessionRepository(IWidgetSessionRepository):
     
     def __init__(self, db: Session):
         self.db = db

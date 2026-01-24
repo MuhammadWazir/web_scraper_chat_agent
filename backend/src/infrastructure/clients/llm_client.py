@@ -1,6 +1,6 @@
 """OpenAI LLM client implementation"""
-from typing import List, Dict, Optional, AsyncIterator, Any, Tuple
-from src.domain.utils.chat_formatter import format_chat_history_tuples
+from typing import List, Dict, Optional, AsyncIterator, Any
+from src.domain.utils.chat_formatter import format_chat_history
 from openai import AsyncOpenAI
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
@@ -33,7 +33,7 @@ class LLMClient(AbstractLLMClient):
             **kwargs
         }
         if max_tokens is not None:
-            params["max_tokens"] = max_tokens
+            params["max_completion_tokens"] = max_tokens
         
         response = await self.client.chat.completions.create(**params)
         return response
@@ -52,9 +52,8 @@ class LLMClient(AbstractLLMClient):
             **kwargs
         }
         
-        # Only include max_tokens if it has a value
         if max_tokens is not None:
-            params["max_tokens"] = max_tokens
+            params["max_completion_tokens"] = max_tokens
         
         stream = await self.client.chat.completions.create(**params)
         
@@ -110,18 +109,13 @@ class LLMClient(AbstractLLMClient):
         summaries = [result[1] for result in results]
         return "\n".join(summaries)
 
-    def _format_chat_history(self, chat_history: List[Tuple[str, str]]) -> str:
-        """Format chat history as a conversation string"""
-        return format_chat_history_tuples(chat_history)
-
     def create_chain(
         self,
         retriever,
-        chat_history: Optional[List[Tuple[str, str]]] = None,
+        chat_history: Optional[List[Dict[str, str]]] = None,
         company_name: str = ""
     ) -> RetrievalQA:
-        """Create a QA chain with optional chat history context"""
-        chat_history_context = self._format_chat_history(chat_history) if chat_history else ""
+        chat_history_context = format_chat_history(chat_history) if chat_history else ""
         company_context = f"You are a representative of {company_name}. " if company_name else ""
         prompt_template = f"""{company_context}Use the following pieces of context to answer the question at the end. 
 If you don't know the answer based on the context, just say that you don't know, don't try to make up an answer.

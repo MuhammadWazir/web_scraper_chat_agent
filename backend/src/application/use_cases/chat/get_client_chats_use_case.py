@@ -25,9 +25,8 @@ class GetClientChatsUseCase:
         return [
             ChatResponse(
                 chat_id=chat.chat_id,
-                client_id=chat.client_id,
+                client_ip=chat.client_ip,
                 title=chat.title,
-                ip_address=chat.ip_address,
                 created_at=chat.created_at
             )
             for chat in chats

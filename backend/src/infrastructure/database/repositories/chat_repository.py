@@ -1,12 +1,14 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from datetime import datetime, timezone
+import uuid
 
 from src.domain.abstractions.repositories.chat_repository import IChatRepository
 from src.domain.entities.chat import Chat
 from src.infrastructure.database.models.chat_model import ChatModel
 
 
-class ChatRepositoryImpl(IChatRepository):
+class ChatRepository(IChatRepository):
     
     def __init__(self, db: Session):
         self.db = db
@@ -31,7 +33,16 @@ class ChatRepositoryImpl(IChatRepository):
             updated_at=entity.updated_at
         )
     
-    def create(self, chat: Chat) -> Chat:
+    def create(self, client_id: str, ip_address: str, title: Optional[str] = None) -> Chat:
+        now = datetime.now(timezone.utc)
+        chat = Chat(
+            chat_id=str(uuid.uuid4()),
+            client_ip=client_id,
+            ip_address=ip_address,
+            title=title,
+            created_at=now,
+            updated_at=now
+        )
         model = self._to_model(chat)
         self.db.add(model)
         self.db.commit()

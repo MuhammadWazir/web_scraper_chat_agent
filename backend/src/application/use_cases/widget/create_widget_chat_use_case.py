@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import uuid
 from src.domain.entities.chat import Chat
 from src.domain.abstractions.repositories.widget_session_repository import IWidgetSessionRepository
 from src.domain.abstractions.repositories.chat_repository import IChatRepository
@@ -30,15 +29,9 @@ class CreateWidgetChatUseCase:
         if client is None:
             raise ValueError(f"Client {widget_session.client_ip} not found")
         
-        now = datetime.now(timezone.utc)
-        chat = Chat(
-            chat_id=str(uuid.uuid4()),
-            client_ip=widget_session.client_ip,
+        created_chat = self.chat_repository.create(
+            client_id=widget_session.client_ip,
             ip_address=end_user_ip,
-            title=None,
-            created_at=now,
-            updated_at=now
+            title=None
         )
-        
-        created_chat = self.chat_repository.create(chat)
         return created_chat

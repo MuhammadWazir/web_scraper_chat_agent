@@ -8,7 +8,6 @@ from src.application.use_cases.widget.create_widget_chat_use_case import CreateW
 from src.application.use_cases.widget.delete_widget_chat_use_case import DeleteWidgetChatUseCase
 from src.application.use_cases.widget.send_widget_message_use_case import SendWidgetMessageUseCase
 from src.application.dtos.responses.chat_response import ChatResponse
-from src.presentation.utils.request_utils import get_client_ip
 from src.application.dtos.requests.send_widget_message_request import SendWidgetMessageRequest
 
 
@@ -24,7 +23,7 @@ async def initialize_widget_session(
     use_case: InitializeWidgetSessionUseCase = Depends(lambda: container.initialize_widget_session_use_case())
 ) -> Dict[str, Any]:
     try:
-        end_user_ip = get_client_ip(http_request)
+        end_user_ip = http_request.client.host
         result = use_case.execute(session_token, end_user_ip)
         return result
     except ValueError as e:
@@ -40,7 +39,7 @@ async def get_widget_chats(
     use_case: GetWidgetChatsUseCase = Depends(lambda: container.get_widget_chats_use_case())
 ):
     try:
-        end_user_ip = get_client_ip(http_request)
+        end_user_ip = http_request.client.host
         chats = use_case.execute(session_token, end_user_ip)
         
         return [
@@ -65,7 +64,7 @@ async def create_widget_chat(
     use_case: CreateWidgetChatUseCase = Depends(lambda: container.create_widget_chat_use_case())
 ):
     try:
-        end_user_ip = get_client_ip(http_request)
+        end_user_ip = http_request.client.host
         chat = use_case.execute(session_token, end_user_ip)
         
         return ChatResponse(
@@ -88,7 +87,7 @@ async def delete_widget_chat(
     use_case: DeleteWidgetChatUseCase = Depends(lambda: container.delete_widget_chat_use_case())
 ):
     try:
-        end_user_ip = get_client_ip(http_request)
+        end_user_ip = http_request.client.host
         success = use_case.execute(session_token, chat_id, end_user_ip)
         
         if not success:
@@ -110,7 +109,7 @@ async def send_widget_message(
     use_case: SendWidgetMessageUseCase = Depends(lambda: container.send_widget_message_use_case())
 ):
     try:
-        end_user_ip = get_client_ip(http_request)
+        end_user_ip = http_request.client.host
         content = request.content
         
         result = await use_case.execute(session_token, chat_id, content, end_user_ip)

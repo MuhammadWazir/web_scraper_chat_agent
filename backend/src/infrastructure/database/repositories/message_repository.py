@@ -8,7 +8,7 @@ from src.domain.entities.message import Message
 from src.infrastructure.database.models.message_model import MessageModel
 
 
-class MessageRepositoryImpl(IMessageRepository):
+class MessageRepository(IMessageRepository):
     """Concrete implementation of IMessageRepository using SQLAlchemy"""
     
     def __init__(self, db: Session):
@@ -22,7 +22,7 @@ class MessageRepositoryImpl(IMessageRepository):
             content=model.message_content,
             ai_generated=model.ai_generated,
             created_at=model.created_at,
-            updated_at=model.created_at  # Using created_at for updated_at as messages are immutable
+            updated_at=model.created_at
         )
     
     def _to_model(self, entity: Message) -> MessageModel:

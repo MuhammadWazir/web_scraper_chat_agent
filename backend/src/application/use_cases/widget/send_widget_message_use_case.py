@@ -60,10 +60,7 @@ class SendWidgetMessageUseCase:
         chat_history = []
         i = 0
         while i < len(recent_messages) - 1:
-            role_i = "assistant" if (hasattr(recent_messages[i], 'ai_generated') and recent_messages[i].ai_generated) or (hasattr(recent_messages[i], 'role') and recent_messages[i].role == 'assistant') else "user"
-            role_next = "assistant" if (hasattr(recent_messages[i+1], 'ai_generated') and recent_messages[i+1].ai_generated) or (hasattr(recent_messages[i+1], 'role') and recent_messages[i+1].role == 'assistant') else "user"
-            
-            if role_i == "user" and role_next == "assistant":
+            if not recent_messages[i].ai_generated and recent_messages[i + 1].ai_generated:
                 chat_history.append({
                     "user": recent_messages[i].content,
                     "assistant": recent_messages[i + 1].content
