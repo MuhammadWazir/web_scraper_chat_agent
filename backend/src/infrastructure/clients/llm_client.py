@@ -1,5 +1,6 @@
 """OpenAI LLM client implementation"""
-from typing import List, Dict, Optional, AsyncIterator, Any, Tuple
+from typing import List, Dict, Optional, AsyncIterator, Any
+from src.domain.utils.chat_formatter import format_chat_history
 from openai import AsyncOpenAI
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
@@ -14,46 +15,47 @@ class LLMClient(AbstractLLMClient):
     def __init__(self):
         settings = load_settings()
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
-        self.default_model = "gpt-4o"
+        self.default_model = "gpt-5-mini"
         self.default_embedding_model = "text-embedding-3-small"
 
     async def create_completion(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
-        temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,
         **kwargs
     ) -> Any:
-        """Create a chat completion"""
-        response = await self.client.chat.completions.create(
-            model=model or self.default_model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stream=stream,
+        params = {
+            "model": model or self.default_model,
+            "messages": messages,
+            "stream": stream,
             **kwargs
-        )
+        }
+        if max_tokens is not None:
+            params["max_completion_tokens"] = max_tokens
+        
+        response = await self.client.chat.completions.create(**params)
         return response
 
     async def create_streaming_completion(
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
-        temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs
     ) -> AsyncIterator[str]:
-        """Create a streaming chat completion"""
-        stream = await self.client.chat.completions.create(
-            model=model or self.default_model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stream=True,
+        params = {
+            "model": model or self.default_model,
+            "messages": messages,
+            "stream": True,
             **kwargs
-        )
+        }
+        
+        if max_tokens is not None:
+            params["max_completion_tokens"] = max_tokens
+        
+        stream = await self.client.chat.completions.create(**params)
         
         async for chunk in stream:
             if chunk.choices[0].delta.content:
@@ -107,25 +109,13 @@ class LLMClient(AbstractLLMClient):
         summaries = [result[1] for result in results]
         return "\n".join(summaries)
 
-    def _format_chat_history(self, chat_history: List[Tuple[str, str]]) -> str:
-        """Format chat history as a conversation string"""
-        if not chat_history:
-            return ""
-        
-        formatted = "\n\nPrevious conversation:\n"
-        for user_msg, ai_msg in chat_history:
-            formatted += f"User: {user_msg}\n"
-            formatted += f"Assistant: {ai_msg}\n"
-        return formatted
-
     def create_chain(
         self,
         retriever,
-        chat_history: Optional[List[Tuple[str, str]]] = None,
+        chat_history: Optional[List[Dict[str, str]]] = None,
         company_name: str = ""
     ) -> RetrievalQA:
-        """Create a QA chain with optional chat history context"""
-        chat_history_context = self._format_chat_history(chat_history) if chat_history else ""
+        chat_history_context = format_chat_history(chat_history) if chat_history else ""
         company_context = f"You are a representative of {company_name}. " if company_name else ""
         prompt_template = f"""{company_context}Use the following pieces of context to answer the question at the end. 
 If you don't know the answer based on the context, just say that you don't know, don't try to make up an answer.
@@ -142,8 +132,7 @@ Helpful Answer:"""
 
         settings = load_settings()
         model = ChatOpenAI(
-            model="gpt-4o",
-            temperature=0.2,
+            model="gpt-5-mini",
             api_key=settings.openai_api_key
         )
 

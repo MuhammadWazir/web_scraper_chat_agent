@@ -8,7 +8,7 @@ class IMessageRepository(ABC):
     """Repository interface for Message aggregate"""
     
     @abstractmethod
-    def create(self, chat_id: str, role: Literal["user", "assistant"], content: str) -> Message:
+    def create(self, message: Message) -> Message:
         """Create a new message"""
         pass
     

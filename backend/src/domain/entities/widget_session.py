@@ -3,10 +3,9 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class Client(BaseModel):
+class WidgetSession(BaseModel):
+    session_token: str
     client_ip: str
-    client_name: str
-    client_url: str
-    api_key_hash: Optional[str]
+    end_user_ip: Optional[str]
+    expires_at: datetime
     created_at: datetime
-    updated_at: datetime

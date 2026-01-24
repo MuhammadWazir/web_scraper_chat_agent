@@ -8,7 +8,7 @@ from src.domain.entities.message import Message
 from src.infrastructure.database.models.message_model import MessageModel
 
 
-class MessageRepositoryImpl(IMessageRepository):
+class MessageRepository(IMessageRepository):
     """Concrete implementation of IMessageRepository using SQLAlchemy"""
     
     def __init__(self, db: Session):
@@ -16,38 +16,28 @@ class MessageRepositoryImpl(IMessageRepository):
     
     def _to_entity(self, model: MessageModel) -> Message:
         """Convert ORM model to domain entity"""
-        # Map ai_generated boolean to role
-        role = "assistant" if model.ai_generated else "user"
         return Message(
             message_id=model.message_id,
             chat_id=model.chat_id,
-            role=role,
             content=model.message_content,
-            created_at=model.created_at
+            ai_generated=model.ai_generated,
+            created_at=model.created_at,
+            updated_at=model.created_at
         )
     
     def _to_model(self, entity: Message) -> MessageModel:
         """Convert domain entity to ORM model"""
-        # Map role to ai_generated boolean
-        ai_generated = (entity.role == "assistant")
         return MessageModel(
             message_id=entity.message_id,
             chat_id=entity.chat_id,
             message_content=entity.content,
-            ai_generated=ai_generated,
+            ai_generated=entity.ai_generated,
             created_at=entity.created_at
         )
     
-    def create(self, chat_id: str, role: Literal["user", "assistant"], content: str) -> Message:
+    def create(self, message: Message) -> Message:
         """Create a new message"""
-        message_id = str(uuid.uuid4())
-        ai_generated = (role == "assistant")
-        model = MessageModel(
-            message_id=message_id,
-            chat_id=chat_id,
-            message_content=content,
-            ai_generated=ai_generated
-        )
+        model = self._to_model(message)
         self.db.add(model)
         self.db.commit()
         self.db.refresh(model)

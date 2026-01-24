@@ -1,31 +1,34 @@
-"""Create client use case - with dependency injection"""
 from src.domain.abstractions.repositories.client_repository import IClientRepository
 from src.domain.abstractions.services.rag_service import IRAGService
 from src.application.dtos.requests.create_client_request import CreateClientRequest
 from src.application.dtos.responses.client_response import ClientResponse
+from src.application.utils.api_key_utils import generate_api_key, hash_api_key
 
 
 class CreateClientUseCase:
-    """Use case for creating a new client and building RAG pipeline"""
     
     def __init__(self, client_repository: IClientRepository, rag_service: IRAGService):
         self.client_repository = client_repository
         self.rag_service = rag_service
 
-    async def execute(self, request: CreateClientRequest) -> ClientResponse:
-        """Create a new client and build RAG pipeline"""
-        # Build RAG pipeline first
+    async def execute(self, request: CreateClientRequest, client_ip: str) -> ClientResponse:
         await self.rag_service.build(request.website_url, request.company_name)
         
-        # Create client in database
-        client = self.client_repository.create(
-            client_name=request.company_name,
-            client_url=request.website_url
-        )
+        # Generate API key
+        api_key = generate_api_key()
+        api_key_hash = hash_api_key(api_key)
         
+        # Create client in database with IP as primary key
+        client = self.client_repository.create(
+            client_ip=client_ip,
+            client_name=request.company_name,
+            client_url=request.website_url,
+            api_key_hash=api_key_hash
+        )
         return ClientResponse(
-            client_id=client.client_id,
+            client_ip=client.client_ip,
             company_name=client.client_name,
             website_url=client.client_url,
+            api_key=api_key,
             created_at=client.created_at
         )

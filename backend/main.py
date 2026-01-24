@@ -2,15 +2,13 @@
 from fastapi.middleware.cors import CORSMiddleware
 from src.configs.config import load_settings
 from src.container import Container
-from src.presentation.api.routes import client_routes, chat_routes, message_routes
+from src.presentation.api.routes import client_routes, chat_routes, message_routes, widget_routes
 
-# Initialize FastAPI app
 app = FastAPI(title="Web Scraper Chat Agent", version="2.0.0")
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["localhost"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,6 +24,7 @@ container = Container()
 app.include_router(client_routes.router)
 app.include_router(chat_routes.router)
 app.include_router(message_routes.router)
+app.include_router(widget_routes.router)
 
 
 @app.get("/")

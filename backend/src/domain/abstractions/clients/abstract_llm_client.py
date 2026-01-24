@@ -11,7 +11,6 @@ class AbstractLLMClient(ABC):
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
-        temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,
         **kwargs
@@ -24,7 +23,6 @@ class AbstractLLMClient(ABC):
         self,
         messages: List[Dict[str, str]],
         model: Optional[str] = None,
-        temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs
     ) -> AsyncIterator[str]:
