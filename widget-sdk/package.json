@@ -1,0 +1,16 @@
+{
+  "name": "web-scraper-chat-widget",
+  "version": "1.0.0",
+  "description": "Chat widget for Web Scraper Agent",
+  "main": "dist/widget.js",
+  "module": "dist/widget.module.js",
+  "unpkg": "dist/widget.umd.js",
+  "source": "src/index.js",
+  "scripts": {
+    "build": "microbundle",
+    "dev": "microbundle watch"
+  },
+  "devDependencies": {
+    "microbundle": "^0.15.1"
+  }
+}

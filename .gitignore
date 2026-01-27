@@ -24,3 +24,4 @@ wheels/
 *.egg
 MANIFEST
 frontend/node_modules
+widget-sdk/node_modules

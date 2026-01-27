@@ -51,6 +51,10 @@ class ClientRepository(IClientRepository):
         model = self.db.query(ClientModel).filter(ClientModel.client_name == client_name).first()
         return self._to_entity(model) if model else None
     
+    def get_by_api_key_hash(self, api_key_hash: str) -> Optional[Client]:
+        model = self.db.query(ClientModel).filter(ClientModel.api_key_hash == api_key_hash).first()
+        return self._to_entity(model) if model else None
+    
     def get_all(self) -> List[Client]:
         models = self.db.query(ClientModel).all()
         return [self._to_entity(model) for model in models]

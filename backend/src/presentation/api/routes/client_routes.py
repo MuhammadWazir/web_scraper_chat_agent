@@ -61,26 +61,3 @@ async def get_client(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/clients/{client_ip}/generate-widget-url")
-async def generate_widget_url(
-    client_ip: str,
-    http_request: Request,
-    use_case: GenerateWidgetUrlUseCase = Depends(lambda: container.generate_widget_url_use_case())
-):
-    try:
-        # Verify the requesting IP matches the client_ip (basic auth)
-        if http_request.client.host != client_ip:
-            raise HTTPException(status_code=403, detail="IP does not match client")
-        
-        session_token = use_case.execute(client_ip)
-        
-        return {
-            "session_token": session_token,
-            "client_ip": client_ip
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
