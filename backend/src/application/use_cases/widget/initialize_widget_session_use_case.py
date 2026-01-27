@@ -20,7 +20,6 @@ class InitializeWidgetSessionUseCase:
         if widget_session.end_user_ip is not None:
             if widget_session.end_user_ip != end_user_ip:
                 raise ValueError("Session already bound to a different IP address")
-            # If same IP, explicit update not needed but we proceed to return session
             final_session = widget_session
         else:
             updated_session = widget_session.model_copy(update={"end_user_ip": end_user_ip})
