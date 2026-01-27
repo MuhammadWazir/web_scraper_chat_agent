@@ -23,6 +23,11 @@ class IClientRepository(ABC):
         pass
     
     @abstractmethod
+    def get_by_api_key_hash(self, api_key_hash: str) -> Optional[Client]:
+        """Get client by API key hash"""
+        pass
+    
+    @abstractmethod
     def get_all(self) -> List[Client]:
         """Get all clients"""
         pass

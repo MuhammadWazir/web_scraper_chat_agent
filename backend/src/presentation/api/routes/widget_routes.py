@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from typing import List, Dict, Any
 
 from src.container import Container
@@ -7,6 +7,7 @@ from src.application.use_cases.widget.get_widget_chats_use_case import GetWidget
 from src.application.use_cases.widget.create_widget_chat_use_case import CreateWidgetChatUseCase
 from src.application.use_cases.widget.delete_widget_chat_use_case import DeleteWidgetChatUseCase
 from src.application.use_cases.widget.send_widget_message_use_case import SendWidgetMessageUseCase
+from src.application.use_cases.widget.generate_widget_url_use_case import GenerateWidgetUrlUseCase
 from src.application.dtos.responses.chat_response import ChatResponse
 from src.application.dtos.requests.send_widget_message_request import SendWidgetMessageRequest
 
@@ -14,6 +15,23 @@ from src.application.dtos.requests.send_widget_message_request import SendWidget
 router = APIRouter(prefix="/widget", tags=["widget"])
 
 container = Container()
+
+
+@router.post("/generate-url")
+async def generate_widget_url(
+    x_api_key: str = Header(...),
+    use_case: GenerateWidgetUrlUseCase = Depends(lambda: container.generate_widget_url_use_case())
+):
+    try:
+        session_token = use_case.execute(x_api_key)
+        
+        return {
+            "session_token": session_token
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/init/{session_token}")
