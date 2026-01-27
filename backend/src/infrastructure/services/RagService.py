@@ -1,4 +1,4 @@
-"""RAG service implementation using LangChain and Qdrant"""
+"""RAG service implementation using LangChain and Qdrant - DEBUG VERSION"""
 from typing import List, Dict
 from langchain.schema import BaseRetriever, Document
 from langchain.callbacks.manager import CallbackManagerForRetrieverRun
@@ -56,8 +56,21 @@ class RAGService(IRAGService):
         self.vector_store_service = VectorStoreService(self.embeddings.get_embeddings())
         self.vector_store_service.create_store(documents=chunks, collection_name=company_name)
 
-    async def query(self, question: str, company_name: str, chat_history: List[Dict[str, str]] = None) -> str:
+    async def query(
+        self,
+        question: str,
+        company_name: str,
+        chat_history: List[Dict[str, str]] = None,
+        tools: List[Dict] = None,
+        auth_token: str = None
+    ) -> str:
         """Query the RAG system with a question and optional chat history"""
+        print(f"\n[DEBUG RAGService] ========== QUERY START ==========")
+        print(f"[DEBUG RAGService] Question: {question}")
+        print(f"[DEBUG RAGService] Company: {company_name}")
+        print(f"[DEBUG RAGService] Has tools: {bool(tools)}")
+        print(f"[DEBUG RAGService] Chat history length: {len(chat_history) if chat_history else 0}")
+        
         if self.vector_store_service is None:
             self.vector_store_service = VectorStoreService(self.embeddings.get_embeddings())
         
@@ -68,9 +81,54 @@ class RAGService(IRAGService):
             k=3
         )
             
-        qa_chain = self.llm_client.create_chain(retriever, chat_history=chat_history, company_name=company_name)
-        result = await qa_chain.ainvoke(question)
-        if isinstance(result, dict):
-            return result.get("result", str(result))
-        return str(result)
-
+        print(f"[DEBUG RAGService] Creating chain...")
+        qa_chain = self.llm_client.create_chain(
+            retriever,
+            chat_history=chat_history,
+            company_name=company_name,
+            tools=tools
+        )
+        print(f"[DEBUG RAGService] Chain created, type: {type(qa_chain)}")
+        
+        # Invoke chain
+        try:
+            if tools:
+                print(f"[DEBUG RAGService] Invoking chain WITH tools...")
+                result = await qa_chain.ainvoke(
+                    {"input": question, "chat_history": chat_history or []},
+                    config={"configurable": {"auth_token": auth_token}}
+                )
+            else:
+                print(f"[DEBUG RAGService] Invoking chain WITHOUT tools...")
+                result = await qa_chain.ainvoke(question)
+            
+            print(f"[DEBUG RAGService] Chain invoked successfully")
+            print(f"[DEBUG RAGService] Result type: {type(result)}")
+            print(f"[DEBUG RAGService] Result value: {result}")
+            
+            # Process result
+            if isinstance(result, dict):
+                print(f"[DEBUG RAGService] Result is dict, keys: {result.keys()}")
+                answer = result.get("result", result.get("output", str(result)))
+                print(f"[DEBUG RAGService] Extracted answer type: {type(answer)}")
+                print(f"[DEBUG RAGService] Extracted answer: {str(answer)[:100]}...")
+                final_answer = str(answer) if answer else "I don't know."
+            elif isinstance(result, str):
+                print(f"[DEBUG RAGService] Result is string")
+                final_answer = result
+            else:
+                print(f"[DEBUG RAGService] Result is unknown type, converting to string")
+                final_answer = str(result)
+            
+            print(f"[DEBUG RAGService] Final answer type: {type(final_answer)}")
+            print(f"[DEBUG RAGService] Final answer: {final_answer[:100]}...")
+            print(f"[DEBUG RAGService] ========== QUERY END ==========\n")
+            
+            return final_answer
+            
+        except Exception as e:
+            print(f"[ERROR RAGService] Exception during query: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"[DEBUG RAGService] ========== QUERY END (ERROR) ==========\n")
+            raise

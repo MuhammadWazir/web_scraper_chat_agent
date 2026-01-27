@@ -1,8 +1,8 @@
-
 class ChatWidget {
     constructor(config = {}) {
         this.sessionToken = null;
         this.baseUrl = config.baseUrl || 'http://localhost:8000';
+        this.authToken = config.authToken || null;
         this.activeChatId = null;
         this.chats = [];
         this.messages = {}; // Local cache of messages: { chatId: [msgs] }
@@ -191,26 +191,26 @@ class ChatWidget {
             }
             .new-chat-btn:active { transform: scale(0.98); }
 
-            .main-chat { flex: 1; display: flex; flex-direction: column; background: #fff; }
-            
-            .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-            
-            .message {
-                max-width: 85%; padding: 10px 16px; border-radius: 12px;
-                font-size: 0.95rem; line-height: 1.5; word-wrap: break-word;
-                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            .main-chat { 
+                flex: 1; display: flex; flex-direction: column; 
+                background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
             }
+            .messages { 
+                flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+            }
+            .message { 
+                max-width: 75%; padding: 12px 16px; border-radius: 18px; 
+                line-height: 1.5; word-wrap: break-word; animation: slideIn 0.3s;
+            }
+            @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             .message.user { 
-                align-self: flex-end; 
-                background: var(--primary-color); 
-                color: white; 
-                border-bottom-right-radius: 2px; 
+                align-self: flex-end; background: var(--primary-color); color: white; 
+                border-bottom-right-radius: 4px; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
             }
             .message.ai { 
-                align-self: flex-start; 
-                background: #edf2f7; 
-                color: #2d3748; 
-                border-bottom-left-radius: 2px; 
+                align-self: flex-start; background: #fff; color: var(--text-color); 
+                border: 1px solid var(--border-color); border-bottom-left-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             }
             
             .input-area { 
@@ -319,10 +319,20 @@ class ChatWidget {
             this.appendMessage(this.activeChatId, txt, true);
             
             try {
+                const requestBody = { 
+                    content: txt
+                };
+                
+                if (this.authToken) {
+                    requestBody.authorization = this.authToken;
+                }
+
                 const resp = await fetch(`${this.baseUrl}/widget/${this.sessionToken}/chats/${this.activeChatId}/messages`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ content: txt })
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
                 });
                 
                 if(resp.ok) {

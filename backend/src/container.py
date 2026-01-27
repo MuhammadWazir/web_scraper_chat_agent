@@ -11,6 +11,7 @@ from src.infrastructure.services.RagService import RAGService
 from src.infrastructure.services.ChatTitleService import ChatTitleService
 
 from src.application.use_cases.client.create_client_use_case import CreateClientUseCase
+from src.application.use_cases.client.update_client_use_case import UpdateClientUseCase
 from src.application.use_cases.client.get_client_use_case import GetClientUseCase
 from src.application.use_cases.client.get_all_clients_use_case import GetAllClientsUseCase
 from src.application.use_cases.chat.create_chat_use_case import CreateChatUseCase
@@ -67,6 +68,11 @@ class Container(containers.DeclarativeContainer):
         CreateClientUseCase,
         client_repository=client_repository,
         rag_service=rag_service
+    )
+
+    update_client_use_case = providers.Factory(
+        UpdateClientUseCase,
+        client_repository=client_repository
     )
     
     create_chat_use_case = providers.Factory(
