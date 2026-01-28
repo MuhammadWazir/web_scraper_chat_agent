@@ -1,4 +1,3 @@
-"""OpenAI LLM client implementation - FINAL FIX"""
 from typing import List, Dict, Optional, AsyncIterator, Any
 from src.domain.utils.chat_formatter import format_chat_history
 from openai import AsyncOpenAI
@@ -69,7 +68,6 @@ class LLMClient(AbstractLLMClient):
         text: str,
         model: Optional[str] = None
     ) -> List[float]:
-        """Create an embedding for text"""
         response = await self.client.embeddings.create(
             model=model or self.default_embedding_model,
             input=text
@@ -81,7 +79,6 @@ class LLMClient(AbstractLLMClient):
         texts: List[str],
         model: Optional[str] = None
     ) -> List[List[float]]:
-        """Create embeddings for multiple texts"""
         response = await self.client.embeddings.create(
             model=model or self.default_embedding_model,
             input=texts
@@ -93,7 +90,6 @@ class LLMClient(AbstractLLMClient):
         chunks: List[str],
         model: Optional[str] = None
     ) -> str:
-        """Summarize multiple chunks in parallel"""
         import asyncio
         
         async def summarize_chunk(chunk: str, index: int) -> tuple[str, str]:
@@ -119,27 +115,23 @@ class LLMClient(AbstractLLMClient):
         company_name: str = "",
         tools: Optional[List[Dict]] = None
     ):
-        """
-        Create a RAG chain using modern LangChain LCEL API.
-        If tools are provided, wrap in RouterChain for agent capabilities.
-        """
         settings = load_settings()
 
-        # Prepare chat history and company context
         history_text = format_chat_history(chat_history) if chat_history else ""
         company_context = f"You are a representative of {company_name}. " if company_name else ""
 
-        # Create the LLM
         model = ChatOpenAI(
             model="gpt-5-mini",
             api_key=settings.openai_api_key
         )
+        escaped_history = history_text.replace("{", "{{").replace("}", "}}")
+        escaped_company_context = company_context.replace("{", "{{").replace("}", "}}")
 
         prompt_template = (
-            f"{company_context}"
+            f"{escaped_company_context}"
             "Use the following context to answer the question. "
             "If you don't know, say you don't know.\n\n"
-            f"{history_text}\n"
+            f"{escaped_history}\n"
             "Context:\n{context}\n\n"
             "Question:\n{input}\n\n"
             "Helpful Answer:"
@@ -147,23 +139,19 @@ class LLMClient(AbstractLLMClient):
 
         prompt = ChatPromptTemplate.from_template(prompt_template)
 
-        # Create the document chain using the modern API
         document_chain = create_stuff_documents_chain(
             llm=model,
             prompt=prompt
         )
 
-        # Create the retrieval chain
         qa_chain = ModernRetrievalChain(
             retriever=retriever,
             document_chain=document_chain
         )
 
-        # If no tools, return the QA chain
         if not tools:
             return qa_chain
 
-        # Build Agent Runnable for tool orchestration
         agent_chain = AgentRunnable(
             client=self.client,
             retriever=retriever,
@@ -173,7 +161,6 @@ class LLMClient(AbstractLLMClient):
             model=self.default_model
         )
 
-        # Router chain combines RAG + Agent decision
         return RouterChain(
             retriever=retriever,
             qa_chain=qa_chain,
@@ -182,23 +169,12 @@ class LLMClient(AbstractLLMClient):
         )
 
 
-# ======================================================
-# MODERN RETRIEVAL CHAIN (LCEL-based)
-# ======================================================
-
 class ModernRetrievalChain:
-    """
-    Modern retrieval chain using LCEL that properly handles documents.
-    """
     def __init__(self, retriever, document_chain):
         self.retriever = retriever
         self.document_chain = document_chain
     
     async def ainvoke(self, inputs: Any, config: Optional[Dict] = None) -> Dict[str, str]:
-        """
-        Invoke the chain with a query.
-        """
-        # Handle different input formats
         if isinstance(inputs, str):
             query = inputs
         elif isinstance(inputs, dict):
@@ -207,30 +183,81 @@ class ModernRetrievalChain:
             query = str(inputs)
         
         try:
-            # Retrieve documents
             docs = await self.retriever.ainvoke(query)
             
-            # Invoke document chain
             result = await self.document_chain.ainvoke({
                 "input": query,
                 "context": docs
             })
             
-            # Wrap result in dict
             return {"result": result}
             
         except Exception as e:
             return {"result": f"Error processing query: {str(e)}"}
     
     def invoke(self, inputs: Any, config: Optional[Dict] = None) -> Dict[str, str]:
-        """Synchronous version (fallback)"""
         import asyncio
         return asyncio.run(self.ainvoke(inputs, config))
 
 
-# ======================================================
-# GENERIC ENDPOINT EXECUTION
-# ======================================================
+def convert_value(value: Any, schema: Dict[str, Any], field_name: str = "") -> Any:
+    """Convert value to the correct type based on schema"""
+    target_type = schema.get("type", "string")
+    
+    # If "fields" exists but no explicit type, treat as object
+    if "fields" in schema and target_type == "string":
+        target_type = "object"
+    
+    # Intelligent type inference when type is not specified
+    if target_type == "string" and field_name:
+        # Infer number type from common field name patterns
+        if any(suffix in field_name.lower() for suffix in ["id", "count", "minutes", "duration", "limit", "offset", "take", "skip"]):
+            # Check if the value looks numeric
+            if isinstance(value, (int, float)):
+                target_type = "number"
+            elif isinstance(value, str) and value.replace(".", "", 1).replace("-", "", 1).isdigit():
+                target_type = "number"
+    
+    if target_type == "number":
+        try:
+            # Handle both int and float
+            if isinstance(value, str):
+                return int(value) if '.' not in value else float(value)
+            return value
+        except (ValueError, TypeError):
+            return value
+    elif target_type == "object":
+        # Already an object from JSON, but may need nested conversion
+        # Support both "properties" and "fields" keys
+        nested_key = "properties" if "properties" in schema else "fields" if "fields" in schema else None
+        
+        if isinstance(value, dict) and nested_key and nested_key in schema:
+            converted = {}
+            for key, val in value.items():
+                if key in schema[nested_key]:
+                    converted[key] = convert_value(val, schema[nested_key][key], key)
+                else:
+                    converted[key] = val
+            return converted
+        return value
+    elif target_type == "array":
+        if not isinstance(value, list):
+            value = [value]
+        
+        # Convert array items if items schema is present
+        if "items" in schema and isinstance(schema["items"], dict):
+            items_schema = schema["items"]
+            converted_array = []
+            for item in value:
+                converted_array.append(convert_value(item, items_schema, field_name + "_item"))
+            return converted_array
+        
+        return value
+    elif target_type == "boolean":
+        if isinstance(value, str):
+            return value.lower() in ("true", "1", "yes")
+        return bool(value)
+    return str(value)
 
 def execute_endpoint(
     endpoint: Dict[str, Any],
@@ -243,30 +270,54 @@ def execute_endpoint(
     headers = endpoint.get("headers", {}).copy()
     params: Dict[str, Any] = {}
     body: Dict[str, Any] = {}
-    inputs = endpoint.get("inputs", {})
+    
+    # Support both structures:
+    # 1. New structure: headers/body at top level
+    # 2. Old structure: headers/body under inputs or inputs.inputs
+    
+    # Check if we have the new structure (headers/body at top level)
+    if "headers" in endpoint or "body" in endpoint:
+        headers_schema = endpoint.get("headers", {})
+        body_schema = endpoint.get("body", {})
+        query_schema = endpoint.get("query", {})
+        path_schema = endpoint.get("path", {})
+    else:
+        # Fall back to old nested structure
+        inputs = endpoint.get("inputs", {})
+        if "inputs" in inputs and isinstance(inputs["inputs"], dict):
+            inputs = inputs["inputs"]
+        headers_schema = inputs.get("headers", {})
+        body_schema = inputs.get("body", {})
+        query_schema = inputs.get("query", {})
+        path_schema = inputs.get("path", {})
 
-    # Headers
-    for key in inputs.get("headers", {}):
-        if key in args:
+    # Process headers - add static header values
+    for key, schema in headers_schema.items():
+        if isinstance(schema, dict) and "value" in schema:
+            headers[key] = schema["value"]
+        elif key in args:
             headers[key] = args[key]
 
-    # Path params
-    for key in inputs.get("path", {}):
-        url = url.replace(f"{{{key}}}", str(args[key]))
-
-    # Query params
-    for key, schema in inputs.get("query", {}).items():
+    # Process path parameters
+    for key in path_schema:
         if key in args:
-            params[key] = args[key]
-        elif "default" in schema:
+            url = url.replace(f"{{{key}}}", str(args[key]))
+
+    # Process query parameters
+    for key, schema in query_schema.items():
+        if key in args:
+            params[key] = convert_value(args[key], schema)
+        elif isinstance(schema, dict) and "default" in schema:
             params[key] = schema["default"]
 
-    # Body
-    for key in inputs.get("body", {}):
+    # Process body parameters
+    for key, schema in body_schema.items():
         if key in args:
-            body[key] = args[key]
+            # Auto-detect objects with "fields" key
+            if isinstance(schema, dict) and "fields" in schema and "type" not in schema:
+                schema = {**schema, "type": "object"}
+            body[key] = convert_value(args[key], schema)
 
-    # Auth
     if endpoint.get("auth") == "bearer" and auth_token:
         headers["Authorization"] = auth_token
 
@@ -279,64 +330,155 @@ def execute_endpoint(
             json=body or None,
             timeout=30
         )
-        response.raise_for_status()
-        return response.json() if response.content else {}
+        
+        if not response.ok:
+            try:
+                error_details = response.json()
+            except json.JSONDecodeError:
+                error_details = response.text
+            
+            return {
+                "error": "API_ERROR",
+                "status_code": response.status_code,
+                "details": error_details
+            }
+            
+        return response.json() if response.content else {"status": "success"}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"EXECUTION_ERROR: {str(e)}"}
 
 
-# ======================================================
-# TOOL SCHEMA BUILDER - FIXED VERSION
-# ======================================================
+def build_properties(section: Dict[str, Any]) -> tuple[Dict[str, Any], List[str]]:
+    """Recursively build properties and required fields from schema section"""
+    properties = {}
+    required = []
+    
+    for name, schema in section.items():
+        if not isinstance(schema, dict):
+            continue
+        
+        # Determine the type - if "fields" exists but no type, it's an object
+        if "fields" in schema and "type" not in schema:
+            schema["type"] = "object"
+        
+        # Intelligent type inference for common numeric fields
+        if "type" not in schema or schema.get("type") == "string":
+            # Check if field name suggests it should be a number
+            if any(suffix in name.lower() for suffix in ["id", "count", "minutes", "duration", "limit", "offset", "take", "skip"]):
+                # Check description for numeric hints
+                description = schema.get("description", "").lower()
+                if any(word in description for word in ["number", "integer", "numeric", "id"]):
+                    schema["type"] = "number"
+        
+        prop = {"type": schema.get("type", "string")}
+        
+        # Handle nested objects - support both "properties" and "fields" keys
+        nested_key = None
+        if schema.get("type") == "object":
+            if "properties" in schema:
+                nested_key = "properties"
+            elif "fields" in schema:
+                nested_key = "fields"
+        
+        if nested_key:
+            nested_props, nested_req = build_properties(schema[nested_key])
+            prop["properties"] = nested_props
+            if nested_req:
+                prop["required"] = nested_req
+        
+        # Handle arrays with items
+        if schema.get("type") == "array":
+            if "items" in schema:
+                items_schema = schema["items"]
+                if isinstance(items_schema, dict):
+                    # Recursively process items schema
+                    if "properties" in items_schema or "fields" in items_schema:
+                        nested_key = "properties" if "properties" in items_schema else "fields"
+                        items_props, items_req = build_properties(items_schema.get(nested_key, {}))
+                        prop["items"] = {
+                            "type": items_schema.get("type", "object"),
+                            "properties": items_props
+                        }
+                        if items_req:
+                            prop["items"]["required"] = items_req
+                    else:
+                        # Simple items schema
+                        prop["items"] = {"type": items_schema.get("type", "string")}
+                else:
+                    # Items is not a dict, use as-is
+                    prop["items"] = items_schema
+            else:
+                # Array without items - default to string items
+                prop["items"] = {"type": "string"}
+        
+        # Add description if present
+        if "description" in schema:
+            prop["description"] = schema["description"]
+        
+        # Add enum if present
+        if "enum" in schema:
+            prop["enum"] = schema["enum"]
+        
+        properties[name] = prop
+        
+        if schema.get("required"):
+            required.append(name)
+    
+    return properties, required
+
+
 
 def build_tools_schema(endpoints: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Build OpenAI function calling schema from endpoint configurations.
-    
-    FIXED: Added proper type checking and error handling for malformed tool configs.
-    """
     tools = []
 
     for ep in endpoints:
-        # FIXED: Validate that ep is a dict
         if not isinstance(ep, dict):
-            print(f"[WARNING] Skipping invalid endpoint (not a dict): {type(ep)}")
             continue
             
         properties = {}
         required = []
 
-        # FIXED: Safely get inputs, default to empty dict
-        inputs = ep.get("inputs", {})
+        # Support both structures:
+        # 1. New structure: headers/body at top level
+        # 2. Old structure: headers/body under inputs or inputs.inputs
         
-        # FIXED: Validate inputs is a dict
-        if not isinstance(inputs, dict):
-            print(f"[WARNING] Endpoint '{ep.get('name', 'unknown')}' has invalid inputs (not a dict): {type(inputs)}")
-            inputs = {}
+        if "headers" in ep or "body" in ep:
+            # New structure
+            sections = {
+                "headers": ep.get("headers", {}),
+                "body": ep.get("body", {}),
+                "query": ep.get("query", {}),
+                "path": ep.get("path", {})
+            }
+        else:
+            # Old structure
+            inputs = ep.get("inputs", {})
+            if not isinstance(inputs, dict):
+                inputs = {}
+            
+            # Handle double-nested "inputs" key
+            if "inputs" in inputs and isinstance(inputs["inputs"], dict):
+                inputs = inputs["inputs"]
+            
+            sections = {
+                "headers": inputs.get("headers", {}),
+                "body": inputs.get("body", {}),
+                "query": inputs.get("query", {}),
+                "path": inputs.get("path", {})
+            }
 
-        # FIXED: Iterate safely with proper type checking
-        for section_name, section in inputs.items():
-            # FIXED: Check that section is a dict
+        for section_name, section in sections.items():
             if not isinstance(section, dict):
-                print(f"[WARNING] Section '{section_name}' is not a dict: {type(section)}")
                 continue
-                
-            for name, schema in section.items():
-                # FIXED: Check that schema is a dict
-                if not isinstance(schema, dict):
-                    print(f"[WARNING] Schema for '{name}' is not a dict: {type(schema)}")
-                    continue
-                    
-                properties[name] = {"type": schema.get("type", "string")}
-                if schema.get("required"):
-                    required.append(name)
+            
+            section_props, section_req = build_properties(section)
+            properties.update(section_props)
+            required.extend(section_req)
 
-        # FIXED: Validate required fields exist
         name = ep.get("name")
         description = ep.get("description", "")
         
         if not name:
-            print(f"[WARNING] Skipping endpoint without name: {ep}")
             continue
 
         tools.append({
@@ -356,10 +498,6 @@ def build_tools_schema(endpoints: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return tools
 
 
-# ======================================================
-# AGENT RUNNABLE - FIXED VERSION
-# ======================================================
-
 class AgentRunnable:
     def __init__(
         self,
@@ -377,14 +515,11 @@ class AgentRunnable:
         self.company_name = company_name
         self.model = model
 
-        # FIXED: Validate tools_config before building schema
         if not isinstance(tools_config, list):
-            print(f"[ERROR] tools_config is not a list: {type(tools_config)}")
             self.tool_definitions = []
             self.endpoint_map = {}
         else:
             self.tool_definitions = build_tools_schema(tools_config)
-            # FIXED: Build endpoint map with validation
             self.endpoint_map = {}
             for t in tools_config:
                 if isinstance(t, dict) and "name" in t:
@@ -394,28 +529,161 @@ class AgentRunnable:
         question = input_data if isinstance(input_data, str) else input_data.get("input", "")
         auth_token = (config or {}).get("configurable", {}).get("auth_token")
 
-        # Retrieve context
         docs = await self.retriever.ainvoke(question)
         context = "\n\n".join(d.page_content for d in docs)
 
         history = format_chat_history(self.chat_history)
         company_context = f"You are a representative of {self.company_name}. " if self.company_name else ""
 
-        system_prompt = (
-            f"{company_context}"
-            "You are an API orchestration agent. "
-            "Use tool outputs as factual truth. "
-            "Only use values returned by tools.\n\n"
-            f"Context:\n{context}\n\n"
-            f"Chat History:\n{history}"
-        )
+        system_prompt = f"""{company_context}
+## ADDITIONAL RULES FOR CAL.COM BOOKING MANAGEMENT ##
+
+You manage bookings using ONLY the following Cal.com API endpoints:
+
+1. get_bookings (GET /v2/bookings)
+2. create_booking (POST /v2/bookings)
+
+You DO NOT have access to any availability or slot-checking endpoint.
+You MUST NOT invent or assume availability.
+
+--------------------------------------------------
+
+## CORE PRINCIPLES ##
+
+1. You may ONLY reason about bookings that already exist by calling `get_bookings`.
+2. You may ONLY create a booking by calling `create_booking`.
+3. You must NEVER claim a time is available unless:
+   - The user explicitly requests to create a booking
+   - And you proceed directly to `create_booking`
+4. If a requested booking fails, ask the user for a different time.
+5. If some information is missing for a booking and it is reasonable to use parameters from previous bookings' info in the chat history or context, do that to streamline the process.
+
+--------------------------------------------------
+
+## TIME HANDLING RULES ##
+
+1. The `start` field sent to `create_booking` MUST:
+   - Be ISO 8601
+   - Be in UTC
+   - Have NO timezone offset (e.g. `2026-01-30T09:00:00Z`)
+
+2. The attendee's `timeZone`:
+   - MUST be an IANA timezone (e.g. `Europe/Rome`)
+   - Is used only for attendee context and confirmations
+   - Does NOT affect the `start` value sent to the API
+
+3. If the user provides a local time:
+   - Convert it to UTC before calling `create_booking`
+   - When speaking to the user, speak in THEIR timezone
+
+--------------------------------------------------
+
+## GETTING EXISTING BOOKINGS ##
+
+Use `get_bookings` when:
+- The user asks:
+  - "What meetings do I have?"
+  - "Show my bookings"
+  - "Do I have anything scheduled?"
+  - "Find my booking"
+- The user wants to reschedule or reference an existing booking
+
+Guidelines:
+- Apply filters conservatively
+- Use pagination defaults unless user asks otherwise
+- Do not fabricate bookings
+
+--------------------------------------------------
+
+## CREATING A BOOKING ##
+
+Always use `create_booking` to create:
+- Regular bookings
+- Recurring bookings
+- Instant bookings
+
+Booking behavior depends on the payload:
+- `eventTypeId` determines regular vs recurring
+- Team event + `"instant": true` → instant booking
+
+--------------------------------------------------
+
+## EVENT TYPE IDENTIFICATION RULES ##
+
+You MUST identify the event type using ONE of the following:
+
+### Individual Event
+- `eventTypeId`
+OR
+- `eventTypeSlug` + `username` (+ optional `organizationSlug`)
+
+### Team Event
+- `eventTypeId`
+OR
+- `eventTypeSlug` + `teamSlug` (+ optional `organizationSlug`)
+
+--------------------------------------------------
+
+## ATTENDEE REQUIREMENTS ##
+
+The `attendee` object is REQUIRED and must include:
+- name
+- email
+- timeZone
+
+If SMS reminders are enabled for the event type:
+- `attendee.phoneNumber` becomes REQUIRED
+
+--------------------------------------------------
+
+## FAILURE HANDLING ##
+
+If `create_booking` fails:
+- Inform the user that the booking could not be completed.
+- YOU MUST EXPLAIN THE REASON based on the error details provided (e.g., "Slot already booked", "Invalid duration").
+- Ask them for an alternative time or correction.
+- Do NOT suggest specific times unless the user provides them
+
+--------------------------------------------------
+
+## CONVERSATION FLOW RULES ##
+
+1. Always leave the next action with the user
+2. Do not say you will "check availability"
+3. Do not promise follow-ups
+4. Ask clear, direct questions when required fields are missing
+5. Never invent system capabilities you do not have
+
+--------------------------------------------------
+
+## AUTH & HEADERS ##
+
+Every API call MUST include:
+- Authorization: Bearer <token>
+- cal-api-version: 2024-08-13
+
+--------------------------------------------------
+
+## SUMMARY ##
+
+You are a booking executor, not an availability engine.
+You read bookings with `get_bookings`.
+You create bookings with `create_booking`.
+Nothing else.
+
+API token: {auth_token}
+Context:
+{context}
+
+Chat History:
+{history}"""
+
 
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": question}
         ]
 
-        # FIXED: Check if we have valid tools before using them
         if not self.tool_definitions:
             return {"result": "I don't have access to the required tools to complete this task."}
 
@@ -451,14 +719,7 @@ class AgentRunnable:
                 })
 
 
-# ======================================================
-# ROUTER CHAIN
-# ======================================================
-
 class RouterChain:
-    """
-    Always run RAG, then decide if the query requires agent actions.
-    """
     def __init__(self, retriever, qa_chain, agent_chain, router_llm: LLMClient):
         self.retriever = retriever
         self.qa_chain = qa_chain
@@ -466,7 +727,6 @@ class RouterChain:
         self.router_llm = router_llm
 
     async def ainvoke(self, inputs, config=None):
-        # Handle input
         if isinstance(inputs, dict):
             question = inputs.get("input", "")
             chat_history = inputs.get("chat_history", [])
@@ -474,11 +734,9 @@ class RouterChain:
             question = str(inputs)
             chat_history = []
 
-        # 1. Retrieve context
         docs = await self.retriever.ainvoke(question)
         context = "\n".join(d.page_content for d in docs)
 
-        # 2. Router decision prompt
         router_prompt = [
             {"role": "system", "content": (
                 "You are a decision router. Decide if the user query requires "
@@ -495,13 +753,11 @@ class RouterChain:
         except json.JSONDecodeError:
             decision_json = {"action_required": False}
 
-        # 3. Route
         if decision_json.get("action_required", False):
             return await self.agent_chain.ainvoke(
                 {"input": question, "chat_history": chat_history},
                 config=config
             )
 
-        # 4. Answer via RAG
         result = await self.qa_chain.ainvoke(question)
         return result

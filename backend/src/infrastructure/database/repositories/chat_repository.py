@@ -54,7 +54,7 @@ class ChatRepository(IChatRepository):
         return self._to_entity(model) if model else None
     
     def get_by_client_id(self, client_ip: str) -> List[Chat]:
-        models = self.db.query(ChatModel).filter(ChatModel.client_ip == client_ip).all()
+        models = self.db.query(ChatModel).filter(ChatModel.client_ip == client_ip).order_by(ChatModel.created_at.desc()).all()
         return [self._to_entity(model) for model in models]
     
     def update(self, chat: Chat) -> Chat:

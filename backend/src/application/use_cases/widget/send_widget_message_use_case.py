@@ -27,41 +27,30 @@ class SendWidgetMessageUseCase:
         self.chat_title_service = chat_title_service
     
     async def execute(self, session_token: str, chat_id: str, content: str, end_user_ip: str, auth_token: str = None):
-        # Validate session
         widget_session = self.widget_session_repository.get_by_token(session_token)
-        print(auth_token)
+        
         if widget_session is None:
-            # FIXED: Removed unreachable print statement
             raise ValueError("Invalid session token")
         
         if widget_session.expires_at < datetime.now(timezone.utc) or widget_session.end_user_ip != end_user_ip:
-            # FIXED: Removed unreachable print statement
             raise ValueError("Session validation failed")
         
-        # Verify chat exists and belongs to this user
         chat = self.chat_repository.get_by_id(chat_id)
         if chat is None:
-            # FIXED: Removed unreachable print statement
             raise ValueError("Chat not found")
         
         if chat.ip_address != end_user_ip:
-            # FIXED: Removed unreachable print statement
             raise ValueError("Unauthorized access to chat")
         
-        # Get client for RAG context
         client = self.client_repository.get_by_id(chat.client_ip)
         if client is None:
-            # FIXED: Removed unreachable print statement
             raise ValueError("Client not found")
             
-        # Check if this is the first message (for title generation)
         existing_messages = self.message_repository.get_by_chat_id(chat.chat_id)
         is_first_message = len(existing_messages) == 0
         
-        # Get recent messages for chat history (last 6 messages)
         recent_messages = existing_messages[-6:] if len(existing_messages) >= 6 else existing_messages
         
-        # Pair consecutive user-AI messages for chat history
         chat_history = []
         i = 0
         while i < len(recent_messages) - 1:
@@ -74,7 +63,6 @@ class SendWidgetMessageUseCase:
             else:
                 i += 1
         
-        # Save user message
         now = datetime.now(timezone.utc)
         user_message_entity = Message(
             message_id=str(uuid.uuid4()),
