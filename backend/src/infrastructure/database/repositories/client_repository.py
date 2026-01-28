@@ -17,6 +17,7 @@ class ClientRepository(IClientRepository):
             client_name=model.client_name,
             client_url=model.client_url,
             api_key_hash=model.api_key_hash,
+            tools=model.tools,
             created_at=model.created_at,
             updated_at=model.updated_at
         )
@@ -27,6 +28,7 @@ class ClientRepository(IClientRepository):
             client_name=entity.client_name,
             client_url=entity.client_url,
             api_key_hash=entity.api_key_hash,
+            tools=entity.tools,
             created_at=entity.created_at,
             updated_at=entity.updated_at
         )
@@ -64,6 +66,7 @@ class ClientRepository(IClientRepository):
         if model:
             model.client_name = client.client_name
             model.client_url = client.client_url
+            model.tools = client.tools
             model.updated_at = client.updated_at
             self.db.commit()
             self.db.refresh(model)

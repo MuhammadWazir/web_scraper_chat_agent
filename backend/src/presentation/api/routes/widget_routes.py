@@ -126,11 +126,25 @@ async def send_widget_message(
     http_request: Request,
     use_case: SendWidgetMessageUseCase = Depends(lambda: container.send_widget_message_use_case())
 ):
+    """
+    Send a message in a widget chat.
+    
+    FIXED: Authorization token is now received from the request body only.
+    The widget SDK sends it as part of the JSON payload.
+    """
     try:
         end_user_ip = http_request.client.host
-        content = request.content
         
-        result = await use_case.execute(session_token, chat_id, content, end_user_ip)
+        # FIXED: Get auth_token from request body only (not from header)
+        auth_token = request.authorization
+        
+        result = await use_case.execute(
+            session_token=session_token,
+            chat_id=chat_id,
+            content=request.content,
+            end_user_ip=end_user_ip,
+            auth_token=auth_token
+        )
         
         return {
             "message_id": result.message_id,
@@ -139,6 +153,8 @@ async def send_widget_message(
             "created_at": result.created_at
         }
     except ValueError as e:
+        print("ValueError:", e)
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
+        print("Exception:", e)
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,53 +1,239 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Widget Test</title>
+    <title>Widget Test SDK</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 32px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            border: 1px solid var(--border);
+        }
+
+        h1 {
+            margin: 0 0 8px 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0 0 24px 0;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f1f5f9;
+        }
+
+        #widget-container {
+            margin-top: 40px;
+            width: 100%;
+        }
+
+        .status {
+            margin-top: 16px;
+            font-size: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.success {
+            display: block;
+            background-color: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .status.error {
+            display: block;
+            background-color: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+    </style>
 </head>
-<body style="font-family: sans-serif; padding: 20px;">
-    <h1>Widget Test Page</h1>
-    <p>This page tests the web-scraper-chat-widget integration.</p>
-    
+
+<body>
+    <div class="container" id="config-panel">
+        <h1>Widget Test SDK</h1>
+        <p>Configure and initialize the chat widget for testing.</p>
+
+        <div class="form-group">
+            <label for="session-token">Widget Session Token</label>
+            <input type="text" id="session-token" placeholder="Enter session token from backend">
+        </div>
+
+        <div class="form-group">
+            <label for="auth-token">Authorization Token (Optional)</label>
+            <input type="text" id="auth-token" placeholder="Bearer your_api_key">
+        </div>
+
+        <div class="form-group">
+            <label for="backend-url">Backend URL</label>
+            <input type="text" id="backend-url" value="http://localhost:8000">
+        </div>
+
+        <div class="actions">
+            <button class="btn-primary" onclick="initWidget()">Initialize Widget</button>
+            <button class="btn-secondary" onclick="resetConfig()">Clear Saved Data</button>
+        </div>
+
+        <div id="status-msg" class="status"></div>
+    </div>
+
     <div id="widget-container"></div>
 
     <!-- Load the widget from the dist folder -->
     <script src="../dist/widget.umd.js"></script>
 
     <script>
-        async function initWidget() {
-            // Configuration
-            const BACKEND_URL = 'http://localhost:8000';
-            const TOKEN = prompt("Enter your Widget Session Token (get this from the backend or manually create one via /widget/generate-url):");
+        // Load saved values on startup
+        document.getElementById('session-token').value = localStorage.getItem('widget_session_token') || '';
+        document.getElementById('auth-token').value = localStorage.getItem('widget_auth_token') || '';
+        document.getElementById('backend-url').value = localStorage.getItem('widget_backend_url') || 'http://localhost:8000';
 
-            if (!TOKEN) {
-                alert("Session Token is required to test the widget.");
+        function showStatus(msg, isError = false) {
+            const statusEl = document.getElementById('status-msg');
+            statusEl.textContent = msg;
+            statusEl.className = 'status ' + (isError ? 'error' : 'success');
+        }
+
+        async function initWidget() {
+            const sessionToken = document.getElementById('session-token').value.trim();
+            const authToken = document.getElementById('auth-token').value.trim();
+            const backendUrl = document.getElementById('backend-url').value.trim();
+
+            if (!sessionToken) {
+                showStatus("Session Token is required", true);
                 return;
             }
 
+            // Save for next time
+            localStorage.setItem('widget_session_token', sessionToken);
+            if (authToken) localStorage.setItem('widget_auth_token', authToken);
+            localStorage.setItem('widget_backend_url', backendUrl);
+
             try {
-                // Initialize the widget
-                const widget = new window.ChatWidget({ 
-                    baseUrl: BACKEND_URL 
+                showStatus("Initializing...");
+
+                const widget = new window.ChatWidget({
+                    baseUrl: backendUrl,
+                    authToken: authToken || null
                 });
 
-                await widget.init(TOKEN);
+                await widget.init(sessionToken);
                 widget.render('#widget-container');
-                console.log("Widget initialized successfully");
+
+                showStatus("Widget initialized successfully!");
+
+                // Optional: hide config panel after successful init
+                // document.getElementById('config-panel').style.opacity = '0.5';
+                // document.getElementById('config-panel').style.pointerEvents = 'none';
+
             } catch (error) {
                 console.error("Failed to initialize widget:", error);
-                alert("Failed to initialize widget. Check console for details.");
+                showStatus("Error: " + error.message, true);
             }
         }
 
-        // Add a button to start manual testing
-        const btn = document.createElement('button');
-        btn.textContent = 'Initialize Widget';
-        btn.onclick = initWidget;
-        btn.style.padding = '10px 20px';
-        btn.style.fontSize = '16px';
-        btn.style.marginTop = '20px';
-        document.body.appendChild(btn);
+        function resetConfig() {
+            localStorage.removeItem('widget_session_token');
+            localStorage.removeItem('widget_auth_token');
+            localStorage.removeItem('widget_backend_url');
+            location.reload();
+        }
     </script>
 </body>
+
 </html>
