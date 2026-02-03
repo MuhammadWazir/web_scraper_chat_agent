@@ -33,16 +33,7 @@ class ChatRepository(IChatRepository):
             updated_at=entity.updated_at
         )
     
-    def create(self, client_id: str, ip_address: str, title: Optional[str] = None) -> Chat:
-        now = datetime.now(timezone.utc)
-        chat = Chat(
-            chat_id=str(uuid.uuid4()),
-            client_ip=client_id,
-            ip_address=ip_address,
-            title=title,
-            created_at=now,
-            updated_at=now
-        )
+    def create(self, chat: Chat) -> Chat:
         model = self._to_model(chat)
         self.db.add(model)
         self.db.commit()

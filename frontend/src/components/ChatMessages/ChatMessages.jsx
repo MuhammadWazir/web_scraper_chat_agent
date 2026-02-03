@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import './ChatMessages.css';
 
-function ChatMessages({ messages, isTyping, isEmpty }) {
+function ChatMessages({ messages, isTyping, isEmpty, onHintClick }) {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Auto-scroll to bottom when new messages arrive or typing starts
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
@@ -33,7 +33,33 @@ function ChatMessages({ messages, isTyping, isEmpty }) {
           className={`message ${message.ai_generated ? 'ai-message' : 'user-message'}`}
         >
           <div className="message-content">
-            {message.content}
+            {message.ai_generated ? (
+              <>
+                {/* Status hint (visible while streaming) */}
+                {message.streaming && message.statusHint && (
+                  <div className="status-hint">
+                    {message.statusHint}
+                  </div>
+                )}
+                {/* Assistant response (streams incrementally) */}
+                {message.content && <ReactMarkdown>{message.content}</ReactMarkdown>}
+                {message.hints && message.hints.length > 0 && (
+                  <div className="message-hints">
+                    {message.hints.map((hint, idx) => (
+                      <button
+                        key={idx}
+                        className="hint-button"
+                        onClick={() => onHintClick && onHintClick(hint)}
+                      >
+                        {hint}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              message.content
+            )}
           </div>
           <div className="message-meta">
             {new Date(message.created_at).toLocaleString()}

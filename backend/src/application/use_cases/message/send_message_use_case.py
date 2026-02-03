@@ -5,13 +5,18 @@ from src.domain.abstractions.services.rag_service import IRAGService
 from src.domain.abstractions.services.chat_title_service import IChatTitleService
 from src.application.dtos.requests.send_message_request import SendMessageRequest
 from src.domain.entities.message import Message
+from src.domain.entities.chat import Chat
 from typing import Dict, Any
 from datetime import datetime, timezone
 import uuid
+import json
 
 
 class SendMessageUseCase:
-    """Use case for sending a message and getting AI response"""
+    """
+    Use case for sending a message and getting AI response.
+    Passes through status hints from infrastructure layer.
+    """
     
     def __init__(
         self,
@@ -27,50 +32,40 @@ class SendMessageUseCase:
         self.rag_service = rag_service
         self.chat_title_service = chat_title_service
 
-    async def execute(self, request: SendMessageRequest, ip_address: str = "unknown") -> Dict[str, Any]:
-        """Send a message in a chat and get AI response using RAG. Creates chat if it doesn't exist."""
+    async def execute_stream(self, request: SendMessageRequest, ip_address: str):
+        """
+        Stream the AI response with status hints from infrastructure.
+        Status hints show what the system is doing (RAG search, tool calls, etc.)
+        """
+        client = self.client_repository.get_by_id(request.client_id)
+        if client is None:
+            raise ValueError(f"Client with ID {request.client_id} not found")
+        
         # Get or create chat
         if request.chat_id:
             chat = self.chat_repository.get_by_id(request.chat_id)
-            if not chat:
+            if chat is None:
                 raise ValueError(f"Chat with ID {request.chat_id} not found")
+            if chat.ip_address != ip_address:
+                raise ValueError("Unauthorized access to chat")
         else:
-            # Create new chat - will generate title after first message
-            client = self.client_repository.get_by_id(request.client_id)
-            if not client:
-                raise ValueError(f"Client with ID {request.client_id} not found")
-            chat = self.chat_repository.create(
-                client_id=request.client_id,
+            now = datetime.now(timezone.utc)
+            chat = Chat(
+                chat_id=str(uuid.uuid4()),
+                client_ip=request.client_id,
                 ip_address=ip_address,
-                title=None
+                title=None,
+                created_at=now,
+                updated_at=now
             )
+            chat = self.chat_repository.create(chat)
+            # Send chat metadata to frontend
+            yield json.dumps({"type": "chat_created", "chat_id": chat.chat_id})
         
-        # Get client for RAG query
-        client = self.client_repository.get_by_id(chat.client_ip)
-        if not client:
-            raise ValueError(f"Client with ID {chat.client_ip} not found")
+        # Get chat history and create user message
+        chat_history = self.message_repository.get_chat_history(chat.chat_id, limit=20)
+        is_first_message = len(chat_history) == 0
         
-        # Check if this is the first message (for title generation)
-        existing_messages = self.message_repository.get_by_chat_id(chat.chat_id)
-        is_first_message = len(existing_messages) == 0
-        
-        # Get recent messages for chat history (last 6 messages)
-        recent_messages = existing_messages[-6:] if len(existing_messages) >= 6 else existing_messages
-        
-        # Pair consecutive user-AI messages for chat history
-        chat_history = []
-        i = 0
-        while i < len(recent_messages) - 1:
-            if not recent_messages[i].ai_generated and recent_messages[i + 1].ai_generated:
-                chat_history.append({
-                    "user": recent_messages[i].content,
-                    "assistant": recent_messages[i + 1].content
-                })
-                i += 2
-            else:
-                i += 1
-        
-        # Save user message
         now = datetime.now(timezone.utc)
         user_message_entity = Message(
             message_id=str(uuid.uuid4()),
@@ -82,39 +77,60 @@ class SendMessageUseCase:
         )
         user_message = self.message_repository.create(user_message_entity)
         
-        # Generate title if this is the first message
+        # Stream the AI response
+        # The RAG service will yield status hints BEFORE operations
+        # Just pass them through to the frontend
+        full_response = ""
+        async for chunk in self.rag_service.query_stream(
+            question=request.message,
+            company_name=client.client_name,
+            chat_history=chat_history,
+        ):
+            # Parse the chunk to determine its type
+            try:
+                data = json.loads(chunk)
+                chunk_type = data.get("type")
+                
+                if chunk_type == "status_hint":
+                    # Status hint from infrastructure - pass through immediately
+                    print(f"DEBUG: Yielding status hint: {data.get('message')}")
+                    yield chunk
+                    
+                elif chunk_type == "content":
+                    # Actual content chunk - accumulate and pass through
+                    content_data = data.get("data", "")
+                    full_response += content_data
+                    yield chunk
+                    
+                else:
+                    # Unknown type, pass through
+                    yield chunk
+                    
+            except json.JSONDecodeError:
+                # Not JSON, treat as plain content (backward compatibility)
+                full_response += chunk
+                yield json.dumps({"type": "content", "data": chunk})
+        
+        # Generate chat title if this is the first message
         if is_first_message:
-            title = await self.chat_title_service.generate_title(request.message)
-            chat = chat.model_copy(update={"title": title, "updated_at": datetime.now(timezone.utc)})
-            self.chat_repository.update(chat)
+            try:
+                title = await self.chat_title_service.generate_title(request.message)
+                chat.title = title
+                self.chat_repository.update(chat)
+                yield json.dumps({"type": "title_updated", "title": title})
+            except Exception as e:
+                print(f"Error generating title: {e}")
         
-        # Query RAG pipeline with chat history
-        response = await self.rag_service.query(request.message, client.client_name, chat_history=chat_history)
-        
-        # Save AI response
+        # Save AI message
         ai_message_entity = Message(
             message_id=str(uuid.uuid4()),
             chat_id=chat.chat_id,
-            content=response,
+            content=full_response,
             ai_generated=True,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )
-        ai_message = self.message_repository.create(ai_message_entity)
+        self.message_repository.create(ai_message_entity)
         
-        return {
-            "chat_id": chat.chat_id,
-            "chat_title": chat.title,
-            "user_message": {
-                "message_id": user_message.message_id,
-                "content": user_message.content,
-                "ai_generated": user_message.ai_generated,
-                "created_at": user_message.created_at.isoformat() if user_message.created_at else None
-            },
-            "ai_message": {
-                "message_id": ai_message.message_id,
-                "content": ai_message.content,
-                "ai_generated": ai_message.ai_generated,
-                "created_at": ai_message.created_at.isoformat() if ai_message.created_at else None
-            }
-        }
+        # Send completion signal
+        yield json.dumps({"type": "complete"})

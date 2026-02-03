@@ -9,4 +9,5 @@ class ClientResponse(BaseModel):
     website_url: str
     api_key: Optional[str] = None
     tools: Optional[List[dict]] = None
+    system_prompt: Optional[str] = None
     created_at: Optional[datetime] = None

@@ -13,6 +13,7 @@ class ClientModel(Base):
     client_url = Column(String, nullable=False)
     api_key_hash = Column(String(255), unique=True, nullable=True, index=True)
     tools = Column(sa.JSON, nullable=True)
+    system_prompt = Column(sa.Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

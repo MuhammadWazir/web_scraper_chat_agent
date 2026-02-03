@@ -9,5 +9,6 @@ class Client(BaseModel):
     client_url: str
     api_key_hash: Optional[str]
     tools: Optional[List[Dict]] = None
+    system_prompt: Optional[str] = None
     created_at: datetime
     updated_at: datetime

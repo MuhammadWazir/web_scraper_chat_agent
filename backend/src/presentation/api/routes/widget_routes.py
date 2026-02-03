@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from fastapi.responses import StreamingResponse
 from typing import List, Dict, Any
 
 from src.container import Container
@@ -8,6 +9,7 @@ from src.application.use_cases.widget.create_widget_chat_use_case import CreateW
 from src.application.use_cases.widget.delete_widget_chat_use_case import DeleteWidgetChatUseCase
 from src.application.use_cases.widget.send_widget_message_use_case import SendWidgetMessageUseCase
 from src.application.use_cases.widget.generate_widget_url_use_case import GenerateWidgetUrlUseCase
+from src.application.use_cases.widget.get_widget_messages_use_case import GetWidgetMessagesUseCase
 from src.application.dtos.responses.chat_response import ChatResponse
 from src.application.dtos.requests.send_widget_message_request import SendWidgetMessageRequest
 
@@ -118,43 +120,55 @@ async def delete_widget_chat(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{session_token}/chats/{chat_id}/messages")
-async def send_widget_message(
+@router.post("/{session_token}/chats/{chat_id}/messages-stream")
+async def send_widget_message_stream(
     session_token: str,
     chat_id: str,
     request: SendWidgetMessageRequest,
     http_request: Request,
     use_case: SendWidgetMessageUseCase = Depends(lambda: container.send_widget_message_use_case())
 ):
-    """
-    Send a message in a widget chat.
-    
-    FIXED: Authorization token is now received from the request body only.
-    The widget SDK sends it as part of the JSON payload.
-    """
     try:
         end_user_ip = http_request.client.host
-        
-        # FIXED: Get auth_token from request body only (not from header)
         auth_token = request.authorization
         
-        result = await use_case.execute(
-            session_token=session_token,
-            chat_id=chat_id,
-            content=request.content,
-            end_user_ip=end_user_ip,
-            auth_token=auth_token
-        )
+        async def event_generator():
+            async for chunk in use_case.execute_stream(
+                session_token=session_token,
+                chat_id=chat_id,
+                content=request.content,
+                end_user_ip=end_user_ip,
+                auth_token=auth_token
+            ):
+                yield chunk + "\n"
         
-        return {
-            "message_id": result.message_id,
-            "content": result.content,
-            "ai_generated": result.ai_generated,
-            "created_at": result.created_at
-        }
+        return StreamingResponse(
+            event_generator(),
+            media_type="application/x-ndjson",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            }
+        )
     except ValueError as e:
         print("ValueError:", e)
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         print("Exception:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{session_token}/chats/{chat_id}/messages", response_model=List[Any])
+async def get_widget_chat_messages(
+    session_token: str,
+    chat_id: str,
+    http_request: Request,
+    use_case: GetWidgetMessagesUseCase = Depends(lambda: container.get_widget_messages_use_case())
+):
+    try:
+        end_user_ip = http_request.client.host
+        messages = use_case.execute(session_token, chat_id, end_user_ip)
+        return messages
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
