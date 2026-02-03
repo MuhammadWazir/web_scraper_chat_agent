@@ -32,7 +32,7 @@ class SendMessageUseCase:
         self.rag_service = rag_service
         self.chat_title_service = chat_title_service
 
-    async def execute_stream(self, request: SendMessageRequest, ip_address: str):
+    async def execute_stream(self, request: SendMessageRequest, ip_address: str, is_follow_up: bool = False):
         """
         Stream the AI response with status hints from infrastructure.
         Status hints show what the system is doing (RAG search, tool calls, etc.)
@@ -67,15 +67,16 @@ class SendMessageUseCase:
         is_first_message = len(chat_history) == 0
         
         now = datetime.now(timezone.utc)
-        user_message_entity = Message(
-            message_id=str(uuid.uuid4()),
-            chat_id=chat.chat_id,
-            content=request.message,
-            ai_generated=False,
-            created_at=now,
-            updated_at=now
-        )
-        user_message = self.message_repository.create(user_message_entity)
+        if not is_follow_up:
+            user_message_entity = Message(
+                message_id=str(uuid.uuid4()),
+                chat_id=chat.chat_id,
+                content=request.message,
+                ai_generated=False,
+                created_at=now, 
+                updated_at=now
+            )
+            user_message = self.message_repository.create(user_message_entity)
         
         # Stream the AI response
         # The RAG service will yield status hints BEFORE operations
@@ -85,6 +86,7 @@ class SendMessageUseCase:
             question=request.message,
             company_name=client.client_name,
             chat_history=chat_history,
+            is_follow_up=is_follow_up
         ):
             # Parse the chunk to determine its type
             try:
@@ -93,7 +95,6 @@ class SendMessageUseCase:
                 
                 if chunk_type == "status_hint":
                     # Status hint from infrastructure - pass through immediately
-                    print(f"DEBUG: Yielding status hint: {data.get('message')}")
                     yield chunk
                     
                 elif chunk_type == "content":
@@ -119,7 +120,7 @@ class SendMessageUseCase:
                 self.chat_repository.update(chat)
                 yield json.dumps({"type": "title_updated", "title": title})
             except Exception as e:
-                print(f"Error generating title: {e}")
+                raise e
         
         # Save AI message
         ai_message_entity = Message(

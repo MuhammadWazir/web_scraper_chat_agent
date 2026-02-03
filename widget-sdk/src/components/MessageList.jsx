@@ -17,6 +17,7 @@ export function MessageList({ messages, isTyping, onHintClick }) {
                 >
                     {message.role === 'ai' || message.role === 'assistant' ? (
                         <>
+                            {message.isFollowUp && <div className="follow-up-badge">Follow-up</div>}
                             {/* Status hint (visible while streaming) */}
                             {message.streaming && message.statusHint && (
                                 <div className="status-hint">

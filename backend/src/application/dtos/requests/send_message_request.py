@@ -8,3 +8,4 @@ class SendMessageRequest(BaseModel):
     client_id: str
     chat_id: Optional[str] = None
     message: str
+    is_follow_up: bool = False

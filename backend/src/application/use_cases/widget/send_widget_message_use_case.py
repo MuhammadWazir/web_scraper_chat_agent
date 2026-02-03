@@ -39,7 +39,8 @@ class SendWidgetMessageUseCase:
         chat_id: str,
         content: str,
         end_user_ip: str,
-        auth_token: str = None
+        auth_token: str = None,
+        is_follow_up: bool = False
     ) -> AsyncIterator[str]:
         """
         Stream widget message response with status hints.
@@ -70,17 +71,17 @@ class SendWidgetMessageUseCase:
         chat_history = self.message_repository.get_chat_history(chat.chat_id, limit=20)
         is_first_message = len(chat_history) == 0
         
-        now = datetime.now(timezone.utc)
-        user_message_entity = Message(
-            message_id=str(uuid.uuid4()),
-            chat_id=chat.chat_id,
-            
-            content=content,
-            ai_generated=False,
-            created_at=now,
-            updated_at=now
-        )
-        self.message_repository.create(user_message_entity)
+        if not is_follow_up:
+            now = datetime.now(timezone.utc)
+            user_message_entity = Message(
+                message_id=str(uuid.uuid4()),
+                chat_id=chat.chat_id,
+                content=content,
+                ai_generated=False,
+                created_at=now,
+                updated_at=now
+            )
+            self.message_repository.create(user_message_entity)
         
         # Stream response - infrastructure will yield status hints
         full_response = ""
@@ -90,7 +91,8 @@ class SendWidgetMessageUseCase:
             chat_history=chat_history,
             tools=client.tools,
             auth_token=auth_token,
-            system_prompt=client.system_prompt or ""
+            system_prompt=client.system_prompt or "",
+            is_follow_up=is_follow_up
         ):
             # Parse and pass through all events from infrastructure
             try:
@@ -124,7 +126,7 @@ class SendWidgetMessageUseCase:
                 self.chat_repository.update(chat)
                 yield json.dumps({"type": "title_updated", "title": title})
             except Exception as e:
-                print(f"Error generating title: {e}")
+                pass
         
         # Save AI message
         ai_message_entity = Message(

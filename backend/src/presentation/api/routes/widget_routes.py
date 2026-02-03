@@ -138,7 +138,8 @@ async def send_widget_message_stream(
                 chat_id=chat_id,
                 content=request.content,
                 end_user_ip=end_user_ip,
-                auth_token=auth_token
+                auth_token=auth_token,
+                is_follow_up=request.is_follow_up
             ):
                 yield chunk + "\n"
         
@@ -151,10 +152,8 @@ async def send_widget_message_stream(
             }
         )
     except ValueError as e:
-        print("ValueError:", e)
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
-        print("Exception:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{session_token}/chats/{chat_id}/messages", response_model=List[Any])

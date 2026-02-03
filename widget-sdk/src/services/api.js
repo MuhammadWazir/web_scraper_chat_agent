@@ -81,9 +81,12 @@ export class ApiService {
      *   - message: status hint text (for status_hint)
      *   - data: content chunk (for content)
      */
-    async sendMessageStream(sessionToken, chatId, content, onChunk) {
+    async sendMessageStream(sessionToken, chatId, content, onChunk, isFollowUp = false) {
         try {
-            const requestBody = { content };
+            const requestBody = { 
+                content,
+                is_follow_up: isFollowUp
+            };
             
             if (this.authToken) {
                 requestBody.authorization = this.authToken;

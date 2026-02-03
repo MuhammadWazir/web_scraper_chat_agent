@@ -102,7 +102,8 @@ class RAGService(IRAGService):
         chat_history: List[Dict[str, str]] = None,
         tools: Optional[List[Dict]] = None,
         auth_token: Optional[str] = None,
-        system_prompt: Optional[str] = ""
+        system_prompt: Optional[str] = "",
+        is_follow_up: bool = False
     ) -> AsyncIterator[str]:
         """
         Stream response with status hints before each major operation.
@@ -136,6 +137,10 @@ class RAGService(IRAGService):
         prompt_parts = [company_context]
         if system_prompt:
             prompt_parts.append(system_prompt)
+        
+        if is_follow_up:
+            prompt_parts.append("The user has been inactive for 3 minutes. Send a very brief, friendly follow-up message to see if they need more help. Just one short sentence.")
+        
         prompt_parts.append(f"Context:\\n{context}")
         if history:
             prompt_parts.append(f"Chat History:\\n{history}")
