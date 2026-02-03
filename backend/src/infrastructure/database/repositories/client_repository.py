@@ -18,6 +18,7 @@ class ClientRepository(IClientRepository):
             client_url=model.client_url,
             api_key_hash=model.api_key_hash,
             tools=model.tools,
+            system_prompt=model.system_prompt,
             created_at=model.created_at,
             updated_at=model.updated_at
         )
@@ -29,6 +30,7 @@ class ClientRepository(IClientRepository):
             client_url=entity.client_url,
             api_key_hash=entity.api_key_hash,
             tools=entity.tools,
+            system_prompt=entity.system_prompt,
             created_at=entity.created_at,
             updated_at=entity.updated_at
         )
@@ -67,6 +69,7 @@ class ClientRepository(IClientRepository):
             model.client_name = client.client_name
             model.client_url = client.client_url
             model.tools = client.tools
+            model.system_prompt = client.system_prompt
             model.updated_at = client.updated_at
             self.db.commit()
             self.db.refresh(model)

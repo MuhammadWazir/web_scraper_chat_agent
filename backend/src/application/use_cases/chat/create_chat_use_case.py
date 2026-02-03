@@ -20,11 +20,19 @@ class CreateChatUseCase:
             raise ValueError(f"Client with ID {request.client_id} not found")
         
         # Create chat
-        chat = self.chat_repository.create(
-            client_id=request.client_id,
+        import uuid
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        from src.domain.entities.chat import Chat
+        chat_entity = Chat(
+            chat_id=str(uuid.uuid4()),
+            client_ip=request.client_id,
             ip_address=ip_address,
-            title=None
+            title=None,
+            created_at=now,
+            updated_at=now
         )
+        chat = self.chat_repository.create(chat_entity)
         
         return ChatResponse(
             chat_id=chat.chat_id,

@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, AsyncIterator, Optional
 from langchain.schema import BaseRetriever, Document
 from langchain.callbacks.manager import CallbackManagerForRetrieverRun
 from src.domain.abstractions.services.rag_service import IRAGService
@@ -7,6 +7,8 @@ from src.infrastructure.services.DocumentChunker import DocumentChunkingService
 from src.infrastructure.services.EmbeddingService import EmbeddingService
 from src.infrastructure.services.VectorStore import VectorStoreService
 from src.infrastructure.clients.llm_client import LLMClient
+from src.domain.utils.chat_formatter import format_chat_history
+import json
 
 
 class QdrantRetriever(BaseRetriever):
@@ -92,3 +94,68 @@ class RAGService(IRAGService):
             
         except Exception as e:
             raise
+    
+    async def query_stream(
+        self,
+        question: str,
+        company_name: str,
+        chat_history: List[Dict[str, str]] = None,
+        tools: Optional[List[Dict]] = None,
+        auth_token: Optional[str] = None,
+        system_prompt: Optional[str] = ""
+    ) -> AsyncIterator[str]:
+        """
+        Stream response with status hints before each major operation.
+        Yields status hints BEFORE the operation starts, not after.
+        """
+        
+        # Initialize vector store if needed
+        if self.vector_store_service is None:
+            self.vector_store_service = VectorStoreService(self.embeddings.get_embeddings())
+        
+        # HINT #1: About to search knowledge base
+        yield json.dumps({
+            "type": "status_hint",
+            "message": f"🔍 Searching {company_name}'s knowledge base..."
+        })
+        
+        # NOW perform the retrieval
+        retriever = QdrantRetriever(
+            vector_store=self.vector_store_service,
+            collection_name=company_name,
+            k=3
+        )
+        
+        docs = await retriever.ainvoke(question)
+        context = "\\n\\n".join(d.page_content for d in docs)
+        
+        # Prepare the prompt
+        history = format_chat_history(chat_history) if chat_history else ""
+        company_context = f"You are a representative of {company_name}. " if company_name else ""
+        
+        prompt_parts = [company_context]
+        if system_prompt:
+            prompt_parts.append(system_prompt)
+        prompt_parts.append(f"Context:\\n{context}")
+        if history:
+            prompt_parts.append(f"Chat History:\\n{history}")
+        
+        full_prompt = "\\n\\n".join(prompt_parts)
+        
+        messages = [
+            {"role": "system", "content": full_prompt},
+            {"role": "user", "content": question}
+        ]
+        
+        # HINT #2: About to generate response
+        yield json.dumps({
+            "type": "status_hint",
+            "message": "💭 Generating response..."
+        })
+        
+        # NOW stream the actual completion
+        async for chunk in self.llm_client.create_streaming_completion(messages):
+            yield json.dumps({
+                "type": "content",
+                "data": chunk
+            })

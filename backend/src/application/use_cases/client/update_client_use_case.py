@@ -18,6 +18,8 @@ class UpdateClientUseCase:
         update_data = {}
         if request.tools is not None:
             update_data["tools"] = request.tools
+        if request.system_prompt is not None:
+            update_data["system_prompt"] = request.system_prompt
             
         if not update_data:
             return ClientResponse(
@@ -26,6 +28,7 @@ class UpdateClientUseCase:
                 website_url=client.client_url,
                 api_key=None,
                 tools=client.tools,
+                system_prompt=client.system_prompt,
                 created_at=client.created_at
             )
 
@@ -38,5 +41,6 @@ class UpdateClientUseCase:
             website_url=saved_client.client_url,
             api_key=None,
             tools=saved_client.tools,
+            system_prompt=saved_client.system_prompt,
             created_at=saved_client.created_at
         )

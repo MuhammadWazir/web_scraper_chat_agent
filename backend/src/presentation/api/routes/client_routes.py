@@ -40,6 +40,7 @@ async def get_all_clients(
             client_ip=client.client_ip,
             company_name=client.client_name,
             website_url=client.client_url,
+            system_prompt=client.system_prompt,
             created_at=client.created_at
         )
         for client in clients
@@ -58,6 +59,7 @@ async def get_client(
             company_name=client.client_name,
             website_url=client.client_url,
             tools=client.tools,
+            system_prompt=client.system_prompt,
             created_at=client.created_at
         )
     except ValueError as e:

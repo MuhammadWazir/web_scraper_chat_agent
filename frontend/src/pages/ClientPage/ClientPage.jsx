@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ChatSidebar from '../../components/ChatSidebar/ChatSidebar';
 import ChatMessages from '../../components/ChatMessages/ChatMessages';
@@ -17,9 +17,16 @@ function ClientPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [tempChatId, setTempChatId] = useState(null);
 
+  // Use ref to track the latest message state without triggering re-renders
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   /* Tools Management logic */
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [tools, setTools] = useState([]);
+  const [systemPrompt, setSystemPrompt] = useState('');
   const [newTool, setNewTool] = useState({
     name: '',
     description: '',
@@ -32,6 +39,9 @@ function ClientPage() {
   useEffect(() => {
     if (client && client.tools) {
       setTools(client.tools);
+    }
+    if (client && client.system_prompt) {
+      setSystemPrompt(client.system_prompt);
     }
   }, [client]);
 
@@ -76,6 +86,12 @@ function ClientPage() {
   const handleNewChat = () => {
     setSelectedChatId(null);
     setTempChatId(null);
+    setIsTyping(false);
+  };
+
+  const handleSelectChat = (chatId) => {
+    setSelectedChatId(chatId);
+    setIsTyping(false);
   };
 
   const fetchMessages = async (chatId) => {
@@ -126,7 +142,6 @@ function ClientPage() {
   };
 
   const handleSendMessage = async (messageText) => {
-    // Optimistically add user message immediately
     const tempUserMessageId = `temp-${Date.now()}`;
     const userMessage = {
       message_id: tempUserMessageId,
@@ -135,16 +150,11 @@ function ClientPage() {
       created_at: new Date().toISOString()
     };
 
-    // If no chat selected, create a new one
     let currentChatId = selectedChatId;
-    if (!currentChatId) {
-      // We'll get the chat_id from the response
-      currentChatId = null;
-    }
+    let newChatCreated = false;
 
-    // Add user message optimistically (create temp chat state if needed)
+    // Add user message to UI immediately
     if (!currentChatId) {
-      // Create a temporary chat state for the new chat
       const newTempChatId = `temp-${Date.now()}`;
       setTempChatId(newTempChatId);
       setMessages(prev => ({
@@ -162,7 +172,7 @@ function ClientPage() {
     setIsTyping(true);
 
     try {
-      const response = await fetch('/api/chats/send-message', {
+      const response = await fetch('/api/chats/send-message-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,94 +182,149 @@ function ClientPage() {
         }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
 
-        // Update chat list if new chat was created
-        if (result.chat_id && result.chat_id !== selectedChatId) {
-          const newChat = {
-            chat_id: result.chat_id,
-            title: result.chat_title,
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let streamedContent = '';
+      let currentStatusHint = null;
+      let realChatId = currentChatId;
+      let chatTitle = null;
+      const tempAiMessageId = `temp-ai-${Date.now()}`;
+      let buffer = '';
+      let firstChunkReceived = false;
+
+      // Inner helper to update messages state directly
+      const updateStreamingUI = (content, hint) => {
+        const chatKey = newChatCreated ? realChatId : currentChatId;
+
+        setMessages(prev => {
+          const updates = { ...prev };
+          const currentMessages = prev[chatKey] || prev[currentChatId] || [];
+          const filteredMessages = currentMessages.filter(m => m.message_id !== tempAiMessageId);
+
+          const aiMessage = {
+            message_id: tempAiMessageId,
+            content: content,
+            statusHint: hint,
+            ai_generated: true,
+            role: 'assistant',
+            streaming: true,
             created_at: new Date().toISOString()
           };
-          setChats(prev => [newChat, ...prev]);
-          setSelectedChatId(result.chat_id);
+
+          // Apply to active key
+          updates[chatKey] = [...filteredMessages, aiMessage];
+
+          // CRITICAL: If we just created a chat, also update the old temp key
+          // because the UI state (selectedChatId) might not have re-rendered yet.
+          if (newChatCreated && chatKey !== currentChatId) {
+            updates[currentChatId] = [...filteredMessages, aiMessage];
+          }
+
+          return updates;
+        });
+      };
+
+      // Process streaming response
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Fix fused JSONs if any
+        buffer = buffer.replace(/}\s*{/g, '}\n{');
+        const lines = buffer.split('\n');
+
+        // Keep potential incomplete line in buffer
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue;
+
+          try {
+            const jsonData = JSON.parse(trimmedLine);
+
+            if (!firstChunkReceived) {
+              setIsTyping(false);
+              firstChunkReceived = true;
+            }
+
+            if (jsonData.type === 'chat_created') {
+              realChatId = jsonData.chat_id;
+              newChatCreated = true;
+              setSelectedChatId(realChatId);
+              setTempChatId(null);
+              // Initial update to move user message to new chat
+              updateStreamingUI(streamedContent, currentStatusHint);
+
+            } else if (jsonData.type === 'title_updated') {
+              chatTitle = jsonData.title;
+
+            } else if (jsonData.type === 'status_hint') {
+              currentStatusHint = jsonData.message;
+              updateStreamingUI(streamedContent, currentStatusHint);
+              // Yield to allow React to render the hint before content arrives
+              await new Promise(r => setTimeout(r, 0));
+
+            } else if (jsonData.type === 'content') {
+              currentStatusHint = null; // Clear hint when content starts
+              streamedContent += jsonData.data || '';
+              updateStreamingUI(streamedContent, null);
+
+            } else if (jsonData.type === 'complete') {
+              break;
+            }
+          } catch (e) {
+            console.warn('Failed to parse chunk:', trimmedLine, e);
+          }
+        }
+      }
+
+      // After streaming completes, fetch final messages and update chat list
+      if (newChatCreated && realChatId) {
+        await fetchChats();
+        await fetchMessages(realChatId);
+        setSelectedChatId(realChatId);
+
+        if (chatTitle) {
+          setChats(prev => prev.map(chat =>
+            chat.chat_id === realChatId ? { ...chat, title: chatTitle } : chat
+          ));
         }
 
-        // Replace temp message with real messages or append to existing
         setMessages(prev => {
           const newMessages = { ...prev };
-
-          // Get temp messages if we were using a temp chat
-          let messagesToPreserve = [];
-          if (currentChatId && currentChatId.startsWith('temp-')) {
-            // We're creating a new chat, get messages from temp chat
-            messagesToPreserve = newMessages[currentChatId] || [];
-            // Remove temp chat ID
-            delete newMessages[currentChatId];
-          } else {
-            // We're adding to existing chat, get existing messages
-            messagesToPreserve = newMessages[result.chat_id] || [];
-          }
-
-          // Remove the temp user message if it exists
-          const filteredMessages = messagesToPreserve.filter(m => m.message_id !== tempUserMessageId);
-
-          // Add real messages (append, don't replace)
-          return {
-            ...newMessages,
-            [result.chat_id]: [
-              ...filteredMessages,
-              result.user_message,
-              result.ai_message
-            ]
-          };
-        });
-
-        // Clear temp chat ID
-        setTempChatId(null);
-      } else {
-        // Remove temp message on error
-        setMessages(prev => {
-          const newMessages = { ...prev };
-          // Remove temp chat IDs
-          Object.keys(newMessages).forEach(id => {
-            if (id.startsWith('temp-')) {
-              delete newMessages[id];
-            }
-          });
-          // Remove temp message from real chat if it exists
-          if (currentChatId && !currentChatId.startsWith('temp-')) {
-            newMessages[currentChatId] = (newMessages[currentChatId] || []).filter(m => m.message_id !== tempUserMessageId);
-          }
+          delete newMessages[currentChatId];
           return newMessages;
         });
-        const error = await response.json();
-        throw new Error(error.detail || 'Unknown error');
       }
+
+      setTempChatId(null);
+
     } catch (err) {
       console.error('Error sending message:', err);
-      alert(`Error sending message: ${err.message}`);
-      // Remove temp message on error
+      alert('Error sending message. Please try again.');
+
       setMessages(prev => {
         const newMessages = { ...prev };
-        // Remove temp chat IDs
-        Object.keys(newMessages).forEach(id => {
-          if (id.startsWith('temp-')) {
-            delete newMessages[id];
-          }
-        });
-        // Remove temp message from real chat if it exists
-        if (currentChatId && !currentChatId.startsWith('temp-')) {
-          newMessages[currentChatId] = (newMessages[currentChatId] || []).filter(m => m.message_id !== tempUserMessageId);
+        const chatKey = currentChatId;
+        if (newMessages[chatKey]) {
+          newMessages[chatKey] = newMessages[chatKey].filter(m =>
+            m.message_id !== tempUserMessageId && !m.message_id.startsWith('temp-ai-')
+          );
         }
         return newMessages;
       });
-      throw err;
     } finally {
       setIsTyping(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -297,16 +362,16 @@ function ClientPage() {
       const response = await fetch(`/api/clients/${clientIp}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tools }),
+        body: JSON.stringify({ tools, system_prompt: systemPrompt }),
       });
 
       if (response.ok) {
         const updatedClient = await response.json();
         setClient(updatedClient);
         setShowToolsModal(false);
-        alert('Tools updated successfully');
+        alert('Settings updated successfully');
       } else {
-        throw new Error('Failed to update tools');
+        throw new Error('Failed to update settings');
       }
     } catch (err) {
       alert(err.message);
@@ -349,7 +414,7 @@ function ClientPage() {
             onClick={() => setShowToolsModal(true)}
             className="primary-btn"
           >
-            Manage Tools
+            Settings
           </button>
           <button
             onClick={() => navigate('/')}
@@ -364,7 +429,7 @@ function ClientPage() {
         <ChatSidebar
           chats={chats}
           selectedChatId={selectedChatId}
-          onSelectChat={setSelectedChatId}
+          onSelectChat={handleSelectChat}
           onDeleteChat={handleDeleteChat}
           onNewChat={handleNewChat}
         />
@@ -385,10 +450,24 @@ function ClientPage() {
       {showToolsModal && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h2>Manage Tools</h2>
+            <h2>Client Settings</h2>
+
+            <div className="system-prompt-section" style={{ marginBottom: '30px' }}>
+              <h3>System Prompt</h3>
+              <p style={{ fontSize: '0.9em', color: '#888', marginBottom: '10px' }}>
+                Define custom instructions for the AI assistant. This will be injected into every conversation.
+              </p>
+              <textarea
+                placeholder="Enter system prompt instructions here... (e.g., You are a helpful customer service agent for XYZ company.)"
+                value={systemPrompt}
+                onChange={e => setSystemPrompt(e.target.value)}
+                className="chat-input"
+                style={{ minHeight: '150px', fontFamily: 'inherit', resize: 'vertical' }}
+              />
+            </div>
 
             <div className="tools-list">
-              <h3>Current Tools</h3>
+              <h3>API Tools</h3>
               {tools.length === 0 && <p>No tools configured.</p>}
               {tools.map((tool, index) => (
                 <div key={index} className="tool-item">

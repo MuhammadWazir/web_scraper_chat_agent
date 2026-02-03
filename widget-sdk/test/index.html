@@ -142,6 +142,7 @@
             border: 1px solid #fecaca;
         }
     </style>
+    <link rel="stylesheet" href="../dist/style.css">
 </head>
 
 <body>
@@ -174,7 +175,7 @@
 
     <div id="widget-container"></div>
 
-    <!-- Load the widget from the dist folder -->
+    <!-- Load the widget (standalone bundle with React included) -->
     <script src="../dist/widget.umd.js"></script>
 
     <script>
@@ -206,20 +207,36 @@
 
             try {
                 showStatus("Initializing...");
+                const initHelper = window.WebScraperChat && window.WebScraperChat.init;
 
-                const widget = new window.ChatWidget({
-                    baseUrl: backendUrl,
-                    authToken: authToken || null
-                });
+                if (typeof initHelper === 'function') {
+                    const widget = initHelper({
+                        baseUrl: backendUrl,
+                        authToken: authToken || null
+                    });
 
-                await widget.init(sessionToken);
-                widget.render('#widget-container');
+                    await widget.init(sessionToken);
+                    widget.render('#widget-container');
+                } else {
+                    // Fallback to class constructor
+                    const WidgetClass = window.ChatWidget ||
+                        (window.WebScraperChat && window.WebScraperChat.ChatWidget) ||
+                        (window.WebScraperChat && window.WebScraperChat.default);
+
+                    if (!WidgetClass || typeof WidgetClass !== 'function') {
+                        throw new Error("ChatWidget class not found or not a constructor. Check console.");
+                    }
+
+                    const widget = new WidgetClass({
+                        baseUrl: backendUrl,
+                        authToken: authToken || null
+                    });
+
+                    await widget.init(sessionToken);
+                    widget.render('#widget-container');
+                }
 
                 showStatus("Widget initialized successfully!");
-
-                // Optional: hide config panel after successful init
-                // document.getElementById('config-panel').style.opacity = '0.5';
-                // document.getElementById('config-panel').style.pointerEvents = 'none';
 
             } catch (error) {
                 console.error("Failed to initialize widget:", error);

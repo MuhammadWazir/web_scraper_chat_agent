@@ -26,6 +26,7 @@ from src.application.use_cases.widget.get_widget_chats_use_case import GetWidget
 from src.application.use_cases.widget.create_widget_chat_use_case import CreateWidgetChatUseCase
 from src.application.use_cases.widget.delete_widget_chat_use_case import DeleteWidgetChatUseCase
 from src.application.use_cases.widget.send_widget_message_use_case import SendWidgetMessageUseCase
+from src.application.use_cases.widget.get_widget_messages_use_case import GetWidgetMessagesUseCase
 
 
 class Container(containers.DeclarativeContainer):
@@ -159,5 +160,12 @@ class Container(containers.DeclarativeContainer):
         client_repository=client_repository,
         rag_service=rag_service,
         chat_title_service=chat_title_service
+    )
+    
+    get_widget_messages_use_case = providers.Factory(
+        GetWidgetMessagesUseCase,
+        widget_session_repository=widget_session_repository,
+        chat_repository=chat_repository,
+        message_repository=message_repository
     )
 

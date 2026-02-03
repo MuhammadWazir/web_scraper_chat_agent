@@ -70,7 +70,18 @@ export class ApiService {
         }
     }
 
-    async sendMessage(sessionToken, chatId, content) {
+    /**
+     * Send a message with streaming response and status hints
+     * @param {string} sessionToken - Widget session token
+     * @param {string} chatId - Chat ID
+     * @param {string} content - Message content
+     * @param {function} onChunk - Callback for each chunk
+     *   Receives objects with: {type, message?, data?}
+     *   - type: "status_hint" | "content" | "title_updated" | "complete"
+     *   - message: status hint text (for status_hint)
+     *   - data: content chunk (for content)
+     */
+    async sendMessageStream(sessionToken, chatId, content, onChunk) {
         try {
             const requestBody = { content };
             
@@ -79,7 +90,7 @@ export class ApiService {
             }
 
             const response = await fetch(
-                `${this.baseUrl}/widget/${sessionToken}/chats/${chatId}/messages`,
+                `${this.baseUrl}/widget/${sessionToken}/chats/${chatId}/messages-stream`,
                 {
                     method: 'POST',
                     headers: {
@@ -93,9 +104,51 @@ export class ApiService {
                 throw new Error(`Failed to send message: ${response.status}`);
             }
 
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            let buffer = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                // Hack to fix fused JSONs (aggressive)
+                buffer = buffer.replace(/}\s*{"type"/g, '}\n{"type"');
+                const lines = buffer.split('\n');
+                
+                // Keep the last line in the buffer
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+
+                    try {
+                        const jsonData = JSON.parse(line);
+                        if (onChunk) {
+                            await onChunk(jsonData);
+                        }
+                    } catch (parseError) {
+                        console.warn('Failed to parse chunk:', line, parseError);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to send message stream:', error);
+            throw error;
+        }
+    }
+    async loadMessages(sessionToken, chatId) {
+        try {
+            const response = await fetch(`${this.baseUrl}/widget/${sessionToken}/chats/${chatId}/messages`);
+
+            if (!response.ok) {
+                throw new Error(`Failed to load messages: ${response.status}`);
+            }
+
             return await response.json();
         } catch (error) {
-            console.error('Failed to send message:', error);
+            console.error('Failed to load messages:', error);
             throw error;
         }
     }
