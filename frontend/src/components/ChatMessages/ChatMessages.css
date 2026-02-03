@@ -122,6 +122,21 @@
   font-weight: 500;
 }
 
+.follow-up-badge {
+  font-size: 0.7rem;
+  background-color: #ebf4ff;
+  color: #667eea;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  display: inline-block;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  width: fit-content;
+}
+
 .typing-indicator {
   opacity: 0.8;
 }

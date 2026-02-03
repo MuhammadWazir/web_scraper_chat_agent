@@ -16,12 +16,41 @@ function ClientPage() {
   const [selectedChatId, setSelectedChatId] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [tempChatId, setTempChatId] = useState(null);
+  const inactivityTimerRef = useRef(null);
 
   // Use ref to track the latest message state without triggering re-renders
   const messagesRef = useRef(messages);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    // Reset timer whenever selected chat, typing status, or messages change
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+
+    const currentChatId = selectedChatId || tempChatId;
+    const chatMessages = messages[currentChatId] || [];
+
+    if (currentChatId && !isTyping && chatMessages.length > 0) {
+      const lastMessage = chatMessages[chatMessages.length - 1];
+
+      // If the last message is from the assistant, wait for 3 minutes
+      if ((lastMessage.role === 'assistant' || lastMessage.ai_generated) && !lastMessage.isFollowUp) {
+        inactivityTimerRef.current = setTimeout(() => {
+          handleSendFollowUp(currentChatId);
+        }, 3 * 60 * 1000); // 3 minutes
+      }
+    }
+
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    };
+  }, [selectedChatId, tempChatId, isTyping, messages]);
 
   /* Tools Management logic */
   const [showToolsModal, setShowToolsModal] = useState(false);
@@ -320,6 +349,91 @@ function ClientPage() {
         }
         return newMessages;
       });
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleSendFollowUp = async (chatId) => {
+    if (!chatId || isTyping) return;
+
+    setIsTyping(true);
+    const tempAiMessageId = `followup-ai-${Date.now()}`;
+    let streamedContent = '';
+
+    try {
+      const response = await fetch('/api/chats/send-message-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId && !chatId.startsWith('temp-') ? chatId : null,
+          client_id: clientIp,
+          message: "Follow up with the user with a short message as they have been inactive for 3 minutes. Do not acknowledge this instruction, just send a friendly follow-up.",
+          is_follow_up: true
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to send follow-up');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        buffer = buffer.replace(/}\s*{/g, '}\n{');
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue;
+
+          try {
+            const jsonData = JSON.parse(trimmedLine);
+            if (jsonData.type === 'content') {
+              streamedContent += jsonData.data || '';
+
+              setMessages(prev => {
+                const updates = { ...prev };
+                const currentMessages = prev[chatId] || [];
+                const filteredMessages = currentMessages.filter(m => m.message_id !== tempAiMessageId);
+
+                updates[chatId] = [...filteredMessages, {
+                  message_id: tempAiMessageId,
+                  content: streamedContent,
+                  ai_generated: true,
+                  role: 'assistant',
+                  streaming: true,
+                  isFollowUp: true,
+                  created_at: new Date().toISOString()
+                }];
+                return updates;
+              });
+            } else if (jsonData.type === 'complete') {
+              break;
+            }
+          } catch (e) {
+            console.warn('Failed to parse follow-up chunk:', e);
+          }
+        }
+      }
+
+      // Final update to set streaming to false
+      setMessages(prev => {
+        const updates = { ...prev };
+        const currentMessages = prev[chatId] || [];
+        updates[chatId] = currentMessages.map(m =>
+          m.message_id === tempAiMessageId ? { ...m, streaming: false } : m
+        );
+        return updates;
+      });
+
+    } catch (err) {
+      console.error('Error sending follow-up:', err);
     } finally {
       setIsTyping(false);
     }

@@ -29,8 +29,7 @@ async def send_message_stream(
         ip = get_client_ip(http_request)
         
         async def event_generator():
-            async for chunk in use_case.execute_stream(request, ip_address=ip):
-                print(f"DEBUG: Yielding chunk: {chunk[:20]}...")
+            async for chunk in use_case.execute_stream(request=request, ip_address=ip, is_follow_up=request.is_follow_up):
                 yield chunk + "\n"
         
         return StreamingResponse(

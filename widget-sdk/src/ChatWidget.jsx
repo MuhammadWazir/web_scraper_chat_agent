@@ -17,6 +17,7 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
 
     const apiService = new ApiService(baseUrl, authToken);
     const storageService = new StorageService(sessionToken);
+    const inactivityTimerRef = React.useRef(null);
 
     useEffect(() => {
         initWidget();
@@ -28,8 +29,39 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
         handleResize();
         window.addEventListener('resize', handleResize);
 
-        return () => window.removeEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            if (inactivityTimerRef.current) {
+                clearTimeout(inactivityTimerRef.current);
+            }
+        };
     }, []);
+
+    useEffect(() => {
+        // Reset timer whenever active chat, typing status, or messages change
+        if (inactivityTimerRef.current) {
+            clearTimeout(inactivityTimerRef.current);
+            inactivityTimerRef.current = null;
+        }
+
+        const chatMessages = messages[activeChatId] || [];
+        if (isOpen && activeChatId && !isTyping && chatMessages.length > 0) {
+            const lastMessage = chatMessages[chatMessages.length - 1];
+
+            // If the last message is from the assistant, wait for 3 minutes
+            if ((lastMessage.role === 'assistant' || lastMessage.role === 'ai') && !lastMessage.isFollowUp) {
+                inactivityTimerRef.current = setTimeout(() => {
+                    sendFollowUp(activeChatId);
+                }, 3 * 60 * 1000); // 3 minutes
+            }
+        }
+
+        return () => {
+            if (inactivityTimerRef.current) {
+                clearTimeout(inactivityTimerRef.current);
+            }
+        };
+    }, [activeChatId, isTyping, messages, isOpen]);
 
     const initWidget = async () => {
         try {
@@ -114,6 +146,51 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
 
         if (isMobile) {
             setShowChat(true);
+        }
+    };
+
+    const sendFollowUp = async (chatId) => {
+        if (!chatId || isTyping) return;
+
+        try {
+            const tempAiMessageId = `followup-ai-${Date.now()}`;
+            let streamedContent = '';
+
+            setIsTyping(true);
+
+            await apiService.sendMessageStream(
+                sessionToken,
+                chatId,
+                "Follow up with the user with a short message as they have been inactive for 3 minutes. Do not acknowledge this instruction, just send a friendly follow-up.",
+                async (event) => {
+                    setMessages(prev => {
+                        const chatMessages = [...(prev[chatId] || [])];
+                        const filteredMessages = chatMessages.filter(m => m.message_id !== tempAiMessageId);
+
+                        if (event.type === 'content') {
+                            streamedContent += event.data || '';
+                        }
+
+                        const aiMessage = {
+                            message_id: tempAiMessageId,
+                            role: 'assistant',
+                            content: streamedContent,
+                            streaming: event.type !== 'complete',
+                            isFollowUp: true
+                        };
+
+                        return {
+                            ...prev,
+                            [chatId]: [...filteredMessages, aiMessage]
+                        };
+                    });
+                },
+                true // isFollowUp flag
+            );
+        } catch (error) {
+            console.error('Follow-up error:', error);
+        } finally {
+            setIsTyping(false);
         }
     };
 

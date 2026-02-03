@@ -18,13 +18,11 @@ class InitializeWidgetSessionUseCase:
             raise ValueError("Session token has expired")
         
         if widget_session.end_user_ip is not None:
-            # Treat ::1 and 127.0.0.1 as same (localhost)
-            saved_ip = "127.0.0.1" if widget_session.end_user_ip == "::1" else widget_session.end_user_ip
-            current_ip = "127.0.0.1" if end_user_ip == "::1" else end_user_ip
+            saved_ip = widget_session.end_user_ip
+            current_ip = end_user_ip
             
             if saved_ip != current_ip:
-                # raise ValueError("Session already bound to a different IP address")
-                print(f"DEBUG: Session IP mismatch allowed. Saved: {saved_ip}, Current: {current_ip}")
+                raise ValueError("Session already bound to a different IP address")
             final_session = widget_session
         else:
             updated_session = widget_session.model_copy(update={"end_user_ip": end_user_ip})

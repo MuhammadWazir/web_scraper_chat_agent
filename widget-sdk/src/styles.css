@@ -458,6 +458,20 @@
         animation: bounce 1.4s infinite ease-in-out;
     }
 
+    .follow-up-badge {
+        font-size: 0.7rem;
+        background: #ebf4ff;
+        color: var(--primary-color);
+        padding: 2px 8px;
+        border-radius: 10px;
+        margin-bottom: 8px;
+        display: inline-block;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: 1px solid rgba(102, 126, 234, 0.2);
+    }
+
     .typing-indicator span:nth-child(1) {
         animation-delay: -0.32s;
     }
