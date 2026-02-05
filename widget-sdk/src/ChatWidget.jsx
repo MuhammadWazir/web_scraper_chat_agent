@@ -63,6 +63,8 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
         };
     }, [activeChatId, isTyping, messages, isOpen]);
 
+    const [initError, setInitError] = useState(null);
+
     const initWidget = async () => {
         try {
             const savedMessages = storageService.loadMessages();
@@ -70,8 +72,20 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
 
             await apiService.initSession(sessionToken);
             await loadChats();
+            setInitError(null); // Clear any previous errors
         } catch (error) {
             console.error('Widget initialization error:', error);
+
+            // Check if it's an IP binding error
+            if (error.message && error.message.includes('already bound')) {
+                setInitError('This session token is already bound to a different device. Please generate a new token using your API key.');
+            } else if (error.message && error.message.includes('expired')) {
+                setInitError('This session token has expired. Please generate a new token using your API key.');
+            } else if (error.message && error.message.includes('Invalid')) {
+                setInitError('Invalid session token. Please generate a new token using your API key.');
+            } else {
+                setInitError(error.message || 'Failed to initialize widget. Please try again.');
+            }
         }
     };
 
@@ -372,6 +386,20 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
                         </div>
                         <button className="close-btn" onClick={() => setIsOpen(false)}>×</button>
                     </div>
+
+                    {/* Error Banner */}
+                    {initError && (
+                        <div style={{
+                            padding: '12px 16px',
+                            backgroundColor: '#fee',
+                            color: '#c00',
+                            borderBottom: '1px solid #fcc',
+                            fontSize: '14px',
+                            lineHeight: '1.5'
+                        }}>
+                            <strong>⚠️ Error:</strong> {initError}
+                        </div>
+                    )}
 
                     <div className={`chat-container ${(isMobile && showChat) ? 'mobile-chat-view' : ''}`}>
                         {(!isMobile || !showChat) && (

@@ -11,7 +11,17 @@ export class ApiService {
             });
 
             if (!response.ok) {
-                throw new Error(`Failed to initialize session: ${response.status}`);
+                // Try to parse error details from response
+                let errorMessage = `Failed to initialize session: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    }
+                } catch (e) {
+                    // If parsing fails, use default message
+                }
+                throw new Error(errorMessage);
             }
 
             return await response.json();
