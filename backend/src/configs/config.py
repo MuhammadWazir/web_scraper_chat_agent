@@ -10,7 +10,7 @@ load_dotenv()
 @dataclass(frozen=True)
 class Settings:
 	"""Application settings loaded from environment variables."""
-	agent_id: str
+	openai_api_key: str
 	database_url: str
 	qdrant_api_key: str
 	qdrant_cluster_endpoint: str

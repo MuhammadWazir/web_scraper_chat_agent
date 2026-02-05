@@ -1,4 +1,4 @@
-backend/.env
+.env
 backend/chroma_db/
 .venv
 **/__pycache__
