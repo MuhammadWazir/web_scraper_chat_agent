@@ -4,54 +4,112 @@ import json
 
 
 def convert_value(value: Any, schema: Dict[str, Any], field_name: str = "") -> Any:
-    target_type = schema.get("type", "string")
+    """
+    Convert a value to match the expected type in the schema.
+    Handles Cal.com's strict type requirements.
+    """
+    # Get the target type from schema
+    target_type = schema.get("type")
     
-    if "fields" in schema and target_type == "string":
+    # Handle legacy "fields" notation (convert to object)
+    if "fields" in schema and not target_type:
         target_type = "object"
     
-    if target_type == "string" and field_name:
-        if any(suffix in field_name.lower() for suffix in ["id", "count", "minutes", "duration", "limit", "offset", "take", "skip"]):
+    # Auto-detect type if not specified
+    if not target_type:
+        if isinstance(value, bool):
+            target_type = "boolean"
+        elif isinstance(value, (int, float)):
+            target_type = "number"
+        elif isinstance(value, dict):
+            target_type = "object"
+        elif isinstance(value, list):
+            target_type = "array"
+        else:
+            target_type = "string"
+    
+    # Aggressive number detection for common field names
+    if field_name:
+        fn_lower = field_name.lower()
+        # Check for common numeric suffixes
+        if any(suffix in fn_lower for suffix in ["id", "count", "minutes", "duration", "limit", "offset", "take", "skip"]):
+            # If it's already a number, keep it
             if isinstance(value, (int, float)):
                 target_type = "number"
+            # If it's a string that looks like a number, convert it
             elif isinstance(value, str) and value.replace(".", "", 1).replace("-", "", 1).isdigit():
                 target_type = "number"
     
+    # Type conversion logic
     if target_type == "number":
         try:
             if isinstance(value, str):
+                # Convert string to int or float
                 return int(value) if '.' not in value else float(value)
-            return value
+            elif isinstance(value, (int, float)):
+                return value
+            else:
+                # Try to convert other types
+                return float(value)
         except (ValueError, TypeError):
             return value
+    
     elif target_type == "object":
+        # Handle nested objects with properties or fields
         nested_key = "properties" if "properties" in schema else "fields" if "fields" in schema else None
         
-        if isinstance(value, dict) and nested_key and nested_key in schema:
-            converted = {}
-            for key, val in value.items():
-                if key in schema[nested_key]:
-                    converted[key] = convert_value(val, schema[nested_key][key], key)
-                else:
-                    converted[key] = val
-            return converted
+        if isinstance(value, dict):
+            if nested_key and nested_key in schema:
+                # Recursively convert nested properties
+                converted = {}
+                for key, val in value.items():
+                    if key in schema[nested_key]:
+                        converted[key] = convert_value(val, schema[nested_key][key], key)
+                    else:
+                        # Keep unknown properties as-is
+                        converted[key] = val
+                return converted
+            else:
+                # No schema for nested properties, return as-is
+                return value
+        elif isinstance(value, str):
+            # Try to parse JSON string
+            try:
+                import json
+                parsed = json.loads(value)
+                if isinstance(parsed, dict):
+                    return parsed
+            except:
+                pass
         return value
+    
     elif target_type == "array":
+        # Ensure value is a list
         if not isinstance(value, list):
             value = [value]
         
+        # Convert array items if schema is provided
         if "items" in schema and isinstance(schema["items"], dict):
             items_schema = schema["items"]
-            converted_array = []
-            for item in value:
-                converted_array.append(convert_value(item, items_schema, field_name + "_item"))
-            return converted_array
+            return [convert_value(item, items_schema, field_name + "_item") for item in value]
         
         return value
+    
     elif target_type == "boolean":
-        if isinstance(value, str):
+        if isinstance(value, bool):
+            return value
+        elif isinstance(value, str):
             return value.lower() in ("true", "1", "yes")
         return bool(value)
-    return str(value)
+    
+    elif target_type == "string":
+        # For strings, preserve complex types (don't stringify objects/arrays)
+        if isinstance(value, (dict, list)):
+            return value
+        return str(value)
+    
+    # Default: return as-is for unknown types
+    return value
 
 
 def execute_endpoint(
@@ -140,14 +198,15 @@ def build_properties(section: Dict[str, Any]) -> tuple[Dict[str, Any], List[str]
         if not isinstance(schema, dict):
             continue
         
+        # Handle legacy "fields" notation
         if "fields" in schema and "type" not in schema:
             schema["type"] = "object"
         
+        # Aggressive number type detection for common field names
         if "type" not in schema or schema.get("type") == "string":
             if any(suffix in name.lower() for suffix in ["id", "count", "minutes", "duration", "limit", "offset", "take", "skip"]):
-                description = schema.get("description", "").lower()
-                if any(word in description for word in ["number", "integer", "numeric", "id"]):
-                    schema["type"] = "number"
+                # Always treat these as numbers
+                schema["type"] = "number"
         
         prop = {"type": schema.get("type", "string")}
         

@@ -194,27 +194,39 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
         }
     };
 
+
     const sendMessage = async () => {
         const text = inputValue.trim();
         if (!text) return;
 
-        if (!activeChatId) {
-            await createChat();
-            if (!activeChatId) return;
-        }
-
-        const chatId = activeChatId;
+        // Clear input immediately for better UX
         setInputValue('');
 
-        // Add user message to UI
-        const newMessages = {
-            ...messages,
-            [chatId]: [
-                ...(messages[chatId] || []),
-                { role: 'user', content: text }
-            ]
-        };
-        setMessages(newMessages);
+        let currentChatId = activeChatId;
+        let newChatCreated = false;
+
+        // If no active chat, we'll let the backend create it
+        if (!currentChatId) {
+            // Create a temporary chat ID for UI purposes
+            const tempChatId = `temp-${Date.now()}`;
+            currentChatId = tempChatId;
+
+            // Add user message to temp chat
+            setMessages(prev => ({
+                ...prev,
+                [tempChatId]: [{ role: 'user', content: text, message_id: `temp-user-${Date.now()}` }]
+            }));
+        } else {
+            // Add user message to existing chat
+            setMessages(prev => ({
+                ...prev,
+                [currentChatId]: [
+                    ...(prev[currentChatId] || []),
+                    { role: 'user', content: text, message_id: `temp-user-${Date.now()}` }
+                ]
+            }));
+        }
+
         setIsTyping(true);
 
         try {
@@ -222,30 +234,77 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
             let streamedContent = '';
             let currentStatusHint = null;
             let firstChunkReceived = false;
+            let realChatId = currentChatId;
+            let chatTitle = null;
 
             await apiService.sendMessageStream(
                 sessionToken,
-                chatId,
+                currentChatId.startsWith('temp-') ? null : currentChatId,
                 text,
                 async (event) => {
+                    if (!firstChunkReceived) {
+                        setIsTyping(false);
+                        firstChunkReceived = true;
+                    }
+
+                    // Handle chat creation event
+                    if (event.type === 'chat_created') {
+                        realChatId = event.chat_id;
+                        newChatCreated = true;
+                        setActiveChatId(realChatId);
+
+                        // Move messages from temp chat to real chat
+                        setMessages(prev => {
+                            const tempMessages = prev[currentChatId] || [];
+                            const newMessages = { ...prev };
+                            newMessages[realChatId] = tempMessages;
+                            if (currentChatId.startsWith('temp-')) {
+                                delete newMessages[currentChatId];
+                            }
+                            return newMessages;
+                        });
+
+                        currentChatId = realChatId;
+                    }
+
+                    // Handle title update
+                    else if (event.type === 'title_updated') {
+                        chatTitle = event.title;
+                        // Update the chat in the list
+                        setChats(prev => {
+                            const existingChat = prev.find(c => c.chat_id === realChatId);
+                            if (existingChat) {
+                                return prev.map(c =>
+                                    c.chat_id === realChatId ? { ...c, title: chatTitle } : c
+                                );
+                            } else {
+                                // Add new chat to the list
+                                return [{ chat_id: realChatId, title: chatTitle }, ...prev];
+                            }
+                        });
+                    }
+
+                    // Handle status hints
+                    else if (event.type === 'status_hint') {
+                        currentStatusHint = event.message;
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+
+                    // Handle content streaming
+                    else if (event.type === 'content') {
+                        streamedContent += event.data || '';
+                        currentStatusHint = null;
+                    }
+
+                    // Handle completion
+                    else if (event.type === 'complete') {
+                        currentStatusHint = null;
+                    }
+
+                    // Update AI message in UI
                     setMessages(prev => {
-                        const chatMessages = [...(prev[chatId] || [])];
-                        // Remove any existing temp AI message for this stream
+                        const chatMessages = [...(prev[realChatId] || prev[currentChatId] || [])];
                         const filteredMessages = chatMessages.filter(m => m.message_id !== tempAiMessageId);
-
-                        if (!firstChunkReceived) {
-                            setIsTyping(false);
-                            firstChunkReceived = true;
-                        }
-
-                        if (event.type === 'status_hint') {
-                            currentStatusHint = event.message;
-                        } else if (event.type === 'content') {
-                            streamedContent += event.data || '';
-                            currentStatusHint = null; // Clear hint when content starts
-                        } else if (event.type === 'complete') {
-                            currentStatusHint = null;
-                        }
 
                         const aiMessage = {
                             message_id: tempAiMessageId,
@@ -257,24 +316,25 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
 
                         return {
                             ...prev,
-                            [chatId]: [...filteredMessages, aiMessage]
+                            [realChatId || currentChatId]: [...filteredMessages, aiMessage]
                         };
                     });
-
-                    // Yield to allow React to render the hint before content arrives
-                    if (event.type === 'status_hint') {
-                        await new Promise(r => setTimeout(r, 0));
-                    }
                 }
             );
+
+            // If a new chat was created, reload the chat list to ensure consistency
+            if (newChatCreated) {
+                await loadChats();
+            }
+
         } catch (error) {
             console.error('Send message error:', error);
 
             setMessages(prev => ({
                 ...prev,
-                [chatId]: [
-                    ...(prev[chatId] || []),
-                    { role: 'assistant', content: 'Error: Could not send message' }
+                [currentChatId]: [
+                    ...(prev[currentChatId] || []),
+                    { role: 'assistant', content: 'Error: Could not send message', message_id: `error-${Date.now()}` }
                 ]
             }));
         } finally {
