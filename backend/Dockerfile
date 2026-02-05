@@ -16,13 +16,13 @@ ENV PATH="/root/.local/bin/:$PATH"
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the dependency files first to leverage Docker cache
+# Copy the dependency files first
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies using uv
 RUN uv sync --frozen
 
-# Install Playwright browsers and their system dependencies
+
 RUN uv run playwright install --with-deps chromium
 
 # Copy the rest of the application code
@@ -35,7 +35,7 @@ ENV PYTHONPATH=/app
 # Make the entrypoint script executable
 RUN chmod +x entrypoint.sh
 
-# Expose the port the app runs on
+# Expose the port
 EXPOSE 8000
 
 # Command to run the application
