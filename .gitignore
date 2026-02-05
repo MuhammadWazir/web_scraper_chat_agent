@@ -1,5 +1,4 @@
 backend/.env
-backend/uv.lock
 backend/chroma_db/
 .venv
 **/__pycache__
