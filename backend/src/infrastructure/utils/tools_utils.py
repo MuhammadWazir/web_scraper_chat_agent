@@ -4,28 +4,18 @@ import json
 
 
 def convert_value(value: Any, schema: Dict[str, Any], field_name: str = "") -> Any:
-    # Get target type from schema, defaulting to None (preserve original)
-    target_type = schema.get("type")
+    target_type = schema.get("type", "string")
     
-    # Auto-detect type if not specified
-    if not target_type:
-        if isinstance(value, (int, float)):
-            target_type = "number"
-        elif isinstance(value, bool):
-            target_type = "boolean"
-        elif isinstance(value, (dict, list)):
-            target_type = "object" if isinstance(value, dict) else "array"
-        else:
-            target_type = "string"
-
-    # Strict number detection for common suffixes
-    if field_name:
-        fn_lower = field_name.lower()
-        if any(suffix in fn_lower for suffix in ["id", "count", "minutes", "duration", "limit", "offset", "take", "skip"]):
-            # If it's a digit string, we should try to make it a number
-            if isinstance(value, str) and value.replace(".", "", 1).replace("-", "", 1).isdigit():
+    if "fields" in schema and target_type == "string":
+        target_type = "object"
+    
+    if target_type == "string" and field_name:
+        if any(suffix in field_name.lower() for suffix in ["id", "count", "minutes", "duration", "limit", "offset", "take", "skip"]):
+            if isinstance(value, (int, float)):
                 target_type = "number"
-
+            elif isinstance(value, str) and value.replace(".", "", 1).replace("-", "", 1).isdigit():
+                target_type = "number"
+    
     if target_type == "number":
         try:
             if isinstance(value, str):
@@ -33,9 +23,7 @@ def convert_value(value: Any, schema: Dict[str, Any], field_name: str = "") -> A
             return value
         except (ValueError, TypeError):
             return value
-            
-    elif target_type == "object" or target_type == "any":
-        # For objects, if we have a schema with properties/fields, recurse
+    elif target_type == "object":
         nested_key = "properties" if "properties" in schema else "fields" if "fields" in schema else None
         
         if isinstance(value, dict) and nested_key and nested_key in schema:
@@ -46,26 +34,23 @@ def convert_value(value: Any, schema: Dict[str, Any], field_name: str = "") -> A
                 else:
                     converted[key] = val
             return converted
-        # If no schema or already a dict, return as is (don't force str())
         return value
-        
     elif target_type == "array":
         if not isinstance(value, list):
-            return [value]
+            value = [value]
         
         if "items" in schema and isinstance(schema["items"], dict):
             items_schema = schema["items"]
-            return [convert_value(item, items_schema, field_name + "_item") for item in value]
-        return value
+            converted_array = []
+            for item in value:
+                converted_array.append(convert_value(item, items_schema, field_name + "_item"))
+            return converted_array
         
+        return value
     elif target_type == "boolean":
         if isinstance(value, str):
             return value.lower() in ("true", "1", "yes")
         return bool(value)
-        
-    # Default: string, but only force str() if it's a primitive
-    if isinstance(value, (dict, list)):
-        return value
     return str(value)
 
 
@@ -115,15 +100,7 @@ def execute_endpoint(
         if key in args:
             if isinstance(schema, dict) and "fields" in schema and "type" not in schema:
                 schema = {**schema, "type": "object"}
-            
-            converted = convert_value(args[key], schema)
-            
-            # For GET requests, if the tool accidentally put fields in body_schema, 
-            # move them to query params instead of sending a JSON body.
-            if method == "GET":
-                params[key] = converted
-            else:
-                body[key] = converted
+            body[key] = convert_value(args[key], schema)
 
     if endpoint.get("auth") == "bearer" and auth_token:
         headers["Authorization"] = auth_token
@@ -168,7 +145,9 @@ def build_properties(section: Dict[str, Any]) -> tuple[Dict[str, Any], List[str]
         
         if "type" not in schema or schema.get("type") == "string":
             if any(suffix in name.lower() for suffix in ["id", "count", "minutes", "duration", "limit", "offset", "take", "skip"]):
-                schema["type"] = "number"
+                description = schema.get("description", "").lower()
+                if any(word in description for word in ["number", "integer", "numeric", "id"]):
+                    schema["type"] = "number"
         
         prop = {"type": schema.get("type", "string")}
         
