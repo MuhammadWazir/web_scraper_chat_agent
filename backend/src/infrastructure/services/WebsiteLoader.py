@@ -10,7 +10,7 @@ class WebsiteLoaderService:
     
     def __init__(self, website_url: str):
         self.website_url = website_url
-        self.crawling_client = CrawlingClient(max_depth=2, max_pages=20, include_external=False)
+        self.crawling_client = CrawlingClient(max_depth=2, max_pages=10, include_external=False)
         self.llm_client = LLMClient()
     
     async def scrape_website(self, url: str) -> List[Document]:

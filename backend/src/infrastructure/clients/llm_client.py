@@ -89,16 +89,20 @@ class LLMClient(AbstractLLMClient):
     ) -> str:
         import asyncio
         
+        # Limit concurrency to 5 requests at a time to avoid overwhelming the network/server
+        semaphore = asyncio.Semaphore(5)
+        
         async def summarize_chunk(chunk: str, index: int) -> tuple[str, str]:
-            system_message = "You are an expert summarizer. Summarize the following text into a maximum of 100 words with the most important information. use the context provided to create the complete output."
-            response = await self.create_completion(
-                messages=[
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": chunk}
-                ],
-                model=model or self.default_model
-            )
-            return (str(index), response.choices[0].message.content.strip())
+            async with semaphore:
+                system_message = "You are an expert summarizer. Summarize the following text into a maximum of 100 words with the most important information. use the context provided to create the complete output."
+                response = await self.create_completion(
+                    messages=[
+                        {"role": "system", "content": system_message},
+                        {"role": "user", "content": chunk}
+                    ],
+                    model=model or self.default_model
+                )
+                return (str(index), response.choices[0].message.content.strip())
         
         tasks = [summarize_chunk(chunk, i) for i, chunk in enumerate(chunks)]
         results = await asyncio.gather(*tasks)
