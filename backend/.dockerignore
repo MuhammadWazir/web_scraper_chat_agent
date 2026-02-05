@@ -8,7 +8,6 @@ __pycache__/
 .dockerignore
 Dockerfile
 docker-compose.yml
-uv.lock
 # Exclude data/ or log/ directories
 logs/
 data/
