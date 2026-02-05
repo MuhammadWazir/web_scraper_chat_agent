@@ -4,7 +4,11 @@ from src.configs.config import load_settings
 from src.container import Container
 from src.presentation.api.routes import client_routes, chat_routes, message_routes, widget_routes
 
-app = FastAPI(title="Web Scraper Chat Agent", version="2.0.0")
+app = FastAPI(
+    title="Web Scraper Chat Agent", 
+    version="2.0.0",
+    root_path="/api"
+)
 
 app.add_middleware(
     CORSMiddleware,
