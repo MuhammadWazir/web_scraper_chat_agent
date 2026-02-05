@@ -38,29 +38,28 @@ class Container(containers.DeclarativeContainer):
     # Database session factory
     db_session = providers.Factory(SessionLocal)
     
-    # Repositories - scoped to database session
-    client_repository = providers.Singleton(
+    client_repository = providers.Factory(
         ClientRepository,
         db=db_session
     )
     
-    chat_repository = providers.Singleton(
+    chat_repository = providers.Factory(
         ChatRepository,
         db=db_session
     )
     
-    message_repository = providers.Singleton(
+    message_repository = providers.Factory(
         MessageRepository,
         db=db_session
     )
     
-    widget_session_repository = providers.Singleton(
+    widget_session_repository = providers.Factory(
         WidgetSessionRepository,
         db=db_session
     )
     
-    # Domain Services - singleton
-    rag_service = providers.Singleton(RAGService)
+    # Domain Services - factory
+    rag_service = providers.Factory(RAGService)
     
     chat_title_service = providers.Singleton(ChatTitleService)
     
