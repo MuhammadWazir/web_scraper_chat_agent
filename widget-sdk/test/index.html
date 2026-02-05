@@ -142,7 +142,7 @@
             border: 1px solid #fecaca;
         }
     </style>
-    <link rel="stylesheet" href="../dist/style.css">
+    <link rel="stylesheet" href="./dist/style.css">
 </head>
 
 <body>
@@ -162,7 +162,7 @@
 
         <div class="form-group">
             <label for="backend-url">Backend URL</label>
-            <input type="text" id="backend-url" value="http://localhost:8000">
+            <input type="text" id="backend-url" value="/api">
         </div>
 
         <div class="actions">
@@ -176,13 +176,13 @@
     <div id="widget-container"></div>
 
     <!-- Load the widget (standalone bundle with React included) -->
-    <script src="../dist/widget.umd.js"></script>
+    <script src="./dist/widget.umd.js"></script>
 
     <script>
         // Load saved values on startup
         document.getElementById('session-token').value = localStorage.getItem('widget_session_token') || '';
         document.getElementById('auth-token').value = localStorage.getItem('widget_auth_token') || '';
-        document.getElementById('backend-url').value = localStorage.getItem('widget_backend_url') || 'http://localhost:8000';
+        document.getElementById('backend-url').value = localStorage.getItem('widget_backend_url') || '/api';
 
         function showStatus(msg, isError = false) {
             const statusEl = document.getElementById('status-msg');
