@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: web_scraper_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysequel1!
+      POSTGRES_DB: web_scraper_chat_agent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: web_scraper_backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://postgres:mysequel1!@db:5432/web_scraper_chat_agent
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - QDRANT_CLUSTER_ENDPOINT=${QDRANT_CLUSTER_ENDPOINT}
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: web_scraper_frontend
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://your-lightsail-ip:8000
+
+  widget:
+    build:
+      context: ./widget-sdk
+      dockerfile: Dockerfile
+    container_name: web_scraper_widget
+    restart: always
+    ports:
+      - "8081:80"
+
+volumes:
+  postgres_data:

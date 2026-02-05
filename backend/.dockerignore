@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.env
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+uv.lock
+# Exclude data/ or log/ directories
+logs/
+data/
