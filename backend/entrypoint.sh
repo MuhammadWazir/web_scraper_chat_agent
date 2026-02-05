@@ -15,4 +15,4 @@ uv run alembic upgrade head
 
 # Start the application
 echo "Starting application..."
-uv run uvicorn main:app --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --host 0.0.0.0 --port 8000 --timeout-keep-alive 1800 --limit-concurrency 100
