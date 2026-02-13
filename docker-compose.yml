@@ -36,6 +36,10 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
     environment:
       - VITE_API_URL=http://your-lightsail-ip:8000
 
