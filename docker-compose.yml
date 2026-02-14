@@ -40,8 +40,9 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     environment:
-      - VITE_API_URL=http://your-lightsail-ip:8000
+      - VITE_API_URL=http://3.106.249.0:8000
 
   widget:
     build:
