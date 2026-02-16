@@ -19,6 +19,26 @@ router = APIRouter(prefix="", tags=["clients"])
 container = Container()
 
 
+def get_client_ip(request: Request) -> str:
+    """Extract real client IP from request headers (set by Nginx)"""
+    # Check X-Forwarded-For header first (set by Nginx)
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # X-Forwarded-For can contain multiple IPs, get the first one (original client)
+        return forwarded_for.split(",")[0].strip()
+    
+    # Fallback to X-Real-IP
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    
+    # Last resort: use direct connection IP (will be Docker IP in production)
+    if request.client:
+        return request.client.host
+    
+    return "unknown"
+
+
 @router.post("/create-client", response_model=ClientResponse)
 async def create_client(
     request: CreateClientRequest,
@@ -27,7 +47,8 @@ async def create_client(
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        result = await use_case.execute(request, http_request.client.host)
+        client_ip = get_client_ip(http_request)
+        result = await use_case.execute(request, client_ip)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

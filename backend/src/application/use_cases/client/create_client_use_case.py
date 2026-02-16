@@ -12,10 +12,6 @@ class CreateClientUseCase:
         self.rag_service = rag_service
 
     async def execute(self, request: CreateClientRequest, client_ip: str) -> ClientResponse:
-        existing_client = self.client_repository.get_by_ip(client_ip)
-        if existing_client:
-            raise ValueError(f"Client with IP {client_ip} already exists")
-        
         await self.rag_service.build(request.website_url, request.company_name)
         
         # Generate API key
