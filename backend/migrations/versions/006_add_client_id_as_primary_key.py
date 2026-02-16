@@ -20,18 +20,52 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Step 1: Drop foreign keys that reference client_ip
-    op.drop_constraint('chats_client_ip_fkey', 'chats', type_='foreignkey')
-    op.drop_constraint('widget_sessions_client_ip_fkey', 'widget_sessions', type_='foreignkey')
+    connection = op.get_bind()
     
-    # Step 2: Drop the primary key constraint on client_ip in clients table
-    op.drop_constraint('clients_pkey', 'clients', type_='primary')
+    # Step 1: Drop foreign keys that reference client_ip (if they exist)
+    # Check and drop chats foreign key
+    result = connection.execute(sa.text("""
+        SELECT constraint_name 
+        FROM information_schema.table_constraints 
+        WHERE table_name = 'chats' 
+        AND constraint_type = 'FOREIGN KEY'
+        AND constraint_name = 'chats_client_ip_fkey'
+    """))
+    if result.fetchone():
+        op.drop_constraint('chats_client_ip_fkey', 'chats', type_='foreignkey')
     
-    # Step 3: Add client_id column to clients table with UUID values
-    op.add_column('clients', sa.Column('client_id', sa.String(), nullable=True))
+    # Check and drop widget_sessions foreign key
+    result = connection.execute(sa.text("""
+        SELECT constraint_name 
+        FROM information_schema.table_constraints 
+        WHERE table_name = 'widget_sessions' 
+        AND constraint_type = 'FOREIGN KEY'
+        AND constraint_name = 'widget_sessions_client_ip_fkey'
+    """))
+    if result.fetchone():
+        op.drop_constraint('widget_sessions_client_ip_fkey', 'widget_sessions', type_='foreignkey')
+    
+    # Step 2: Drop the primary key constraint on client_ip in clients table (if it exists)
+    result = connection.execute(sa.text("""
+        SELECT constraint_name 
+        FROM information_schema.table_constraints 
+        WHERE table_name = 'clients' 
+        AND constraint_type = 'PRIMARY KEY'
+    """))
+    if result.fetchone():
+        op.drop_constraint('clients_pkey', 'clients', type_='primary')
+    
+    # Step 3: Add client_id column to clients table with UUID values (if it doesn't exist)
+    result = connection.execute(sa.text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'clients' 
+        AND column_name = 'client_id'
+    """))
+    if not result.fetchone():
+        op.add_column('clients', sa.Column('client_id', sa.String(), nullable=True))
     
     # Step 4: Populate client_id with UUIDs for existing rows
-    connection = op.get_bind()
     connection.execute(sa.text("""
         UPDATE clients 
         SET client_id = gen_random_uuid()::text
@@ -45,9 +79,24 @@ def upgrade() -> None:
     # Step 6: Make client_ip a regular indexed column (no longer primary key)
     op.alter_column('clients', 'client_ip', nullable=False)
     
-    # Step 7: Add client_id columns to chats and widget_sessions tables
-    op.add_column('chats', sa.Column('client_id', sa.String(), nullable=True))
-    op.add_column('widget_sessions', sa.Column('client_id', sa.String(), nullable=True))
+    # Step 7: Add client_id columns to chats and widget_sessions tables (if they don't exist)
+    result = connection.execute(sa.text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'chats' 
+        AND column_name = 'client_id'
+    """))
+    if not result.fetchone():
+        op.add_column('chats', sa.Column('client_id', sa.String(), nullable=True))
+    
+    result = connection.execute(sa.text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'widget_sessions' 
+        AND column_name = 'client_id'
+    """))
+    if not result.fetchone():
+        op.add_column('widget_sessions', sa.Column('client_id', sa.String(), nullable=True))
     
     # Step 8: Populate client_id in chats and widget_sessions from the mapping
     connection.execute(sa.text("""
@@ -68,9 +117,24 @@ def upgrade() -> None:
     op.alter_column('chats', 'client_id', nullable=False)
     op.alter_column('widget_sessions', 'client_id', nullable=False)
     
-    # Step 10: Drop old client_ip columns from chats and widget_sessions
-    op.drop_column('chats', 'client_ip')
-    op.drop_column('widget_sessions', 'client_ip')
+    # Step 10: Drop old client_ip columns from chats and widget_sessions (if they exist)
+    result = connection.execute(sa.text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'chats' 
+        AND column_name = 'client_ip'
+    """))
+    if result.fetchone():
+        op.drop_column('chats', 'client_ip')
+    
+    result = connection.execute(sa.text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'widget_sessions' 
+        AND column_name = 'client_ip'
+    """))
+    if result.fetchone():
+        op.drop_column('widget_sessions', 'client_ip')
     
     # Step 11: Create foreign keys with new client_id columns
     op.create_foreign_key('chats_client_id_fkey', 'chats', 'clients', ['client_id'], ['client_id'], ondelete='CASCADE')
