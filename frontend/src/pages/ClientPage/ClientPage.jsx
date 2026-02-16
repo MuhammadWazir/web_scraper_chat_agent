@@ -100,12 +100,6 @@ function ClientPage({ onLogout }) {
   useEffect(() => {
     if (selectedChatId) {
       fetchMessages(selectedChatId);
-
-      // Update URL if we're on the old format
-      if (client && clientId) {
-        const clientNameSlug = client.company_name?.toLowerCase().replace(/\s+/g, '-') || 'client';
-        navigate(`/${clientNameSlug}/${selectedChatId}`, { replace: true });
-      }
     }
   }, [selectedChatId]);
 
@@ -363,7 +357,7 @@ function ClientPage({ onLogout }) {
 
       // After streaming completes, fetch final messages and update chat list
       if (newChatCreated && realChatId) {
-        await fetchChats();
+        await fetchChats(actualClientId);
         await fetchMessages(realChatId);
         setSelectedChatId(realChatId);
 
