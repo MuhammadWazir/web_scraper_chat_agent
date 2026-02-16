@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 
 class Client(BaseModel):
+    client_id: str
     client_ip: str
     client_name: str
     client_url: str

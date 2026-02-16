@@ -39,7 +39,7 @@ class GetWidgetMessagesUseCase:
         if chat is None:
             raise ValueError("Chat not found")
             
-        if chat.client_ip != widget_session.client_ip:
+        if chat.client_id != widget_session.client_id:
             raise ValueError("Access denied")
         
         messages = self.message_repository.get_by_chat_id(chat_id)

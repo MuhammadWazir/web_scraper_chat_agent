@@ -16,7 +16,7 @@ class ChatRepository(IChatRepository):
     def _to_entity(self, model: ChatModel) -> Chat:
         return Chat(
             chat_id=model.chat_id,
-            client_ip=model.client_ip,
+            client_id=model.client_id,
             ip_address=model.ip_address,
             title=model.title,
             created_at=model.created_at,
@@ -26,7 +26,7 @@ class ChatRepository(IChatRepository):
     def _to_model(self, entity: Chat) -> ChatModel:
         return ChatModel(
             chat_id=entity.chat_id,
-            client_ip=entity.client_ip,
+            client_id=entity.client_id,
             ip_address=entity.ip_address,
             title=entity.title,
             created_at=entity.created_at,
@@ -44,8 +44,8 @@ class ChatRepository(IChatRepository):
         model = self.db.query(ChatModel).filter(ChatModel.chat_id == chat_id).first()
         return self._to_entity(model) if model else None
     
-    def get_by_client_id(self, client_ip: str) -> List[Chat]:
-        models = self.db.query(ChatModel).filter(ChatModel.client_ip == client_ip).order_by(ChatModel.created_at.desc()).all()
+    def get_by_client_id(self, client_id: str) -> List[Chat]:
+        models = self.db.query(ChatModel).filter(ChatModel.client_id == client_id).order_by(ChatModel.created_at.desc()).all()
         return [self._to_entity(model) for model in models]
     
     def update(self, chat: Chat) -> Chat:

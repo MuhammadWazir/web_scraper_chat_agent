@@ -9,11 +9,11 @@ class UpdateClientUseCase:
     def __init__(self, client_repository: IClientRepository):
         self.client_repository = client_repository
 
-    def execute(self, client_ip: str, request: UpdateClientRequest) -> ClientResponse:
-        client = self.client_repository.get_by_id(client_ip)
+    def execute(self, client_id: str, request: UpdateClientRequest) -> ClientResponse:
+        client = self.client_repository.get_by_id(client_id)
         
         if client is None:
-            raise ValueError(f"Client with IP {client_ip} not found")
+            raise ValueError(f"Client with ID {client_id} not found")
 
         update_data = {}
         if request.tools is not None:
@@ -23,6 +23,7 @@ class UpdateClientUseCase:
             
         if not update_data:
             return ClientResponse(
+                client_id=client.client_id,
                 client_ip=client.client_ip,
                 company_name=client.client_name,
                 website_url=client.client_url,
@@ -36,6 +37,7 @@ class UpdateClientUseCase:
         saved_client = self.client_repository.update(updated_client)
         
         return ClientResponse(
+            client_id=saved_client.client_id,
             client_ip=saved_client.client_ip,
             company_name=saved_client.client_name,
             website_url=saved_client.client_url,

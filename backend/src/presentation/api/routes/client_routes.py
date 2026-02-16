@@ -41,6 +41,7 @@ async def get_all_clients(
     clients = use_case.execute()
     return [
         ClientResponse(
+            client_id=client.client_id,
             client_ip=client.client_ip,
             company_name=client.client_name,
             website_url=client.client_url,
@@ -51,15 +52,16 @@ async def get_all_clients(
     ]
 
 
-@router.get("/clients/{client_ip}", response_model=ClientResponse)
+@router.get("/clients/{client_id}", response_model=ClientResponse)
 async def get_client(
-    client_ip: str,
+    client_id: str,
     use_case: GetClientUseCase = Depends(lambda: container.get_client_use_case()),
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        client = use_case.execute(client_ip)
+        client = use_case.execute(client_id)
         return ClientResponse(
+            client_id=client.client_id,
             client_ip=client.client_ip,
             company_name=client.client_name,
             website_url=client.client_url,
@@ -73,31 +75,31 @@ async def get_client(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/clients/{client_ip}", response_model=ClientResponse)
+@router.patch("/clients/{client_id}", response_model=ClientResponse)
 async def update_client(
-    client_ip: str,
+    client_id: str,
     request: UpdateClientRequest,
     use_case: UpdateClientUseCase = Depends(lambda: container.update_client_use_case()),
     current_user: dict = Depends(get_current_user)
 ):
     try:
-        return use_case.execute(client_ip, request)
+        return use_case.execute(client_id, request)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/clients/{client_ip}")
+@router.delete("/clients/{client_id}")
 async def delete_client(
-    client_ip: str,
+    client_id: str,
     use_case: DeleteClientUseCase = Depends(lambda: container.delete_client_use_case()),
     current_user: dict = Depends(get_current_user)
 ):
     """Delete a client and their associated Qdrant collection"""
     try:
-        success = use_case.execute(client_ip)
-        return {"success": success, "message": f"Client {client_ip} deleted successfully"}
+        success = use_case.execute(client_id)
+        return {"success": success, "message": f"Client {client_id} deleted successfully"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

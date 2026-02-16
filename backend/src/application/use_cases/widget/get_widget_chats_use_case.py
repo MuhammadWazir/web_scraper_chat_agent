@@ -26,7 +26,7 @@ class GetWidgetChatsUseCase:
         if widget_session.end_user_ip is not None and widget_session.end_user_ip != end_user_ip:
              raise ValueError("Session validation failed")
         
-        chats = self.chat_repository.get_by_client_id(widget_session.client_ip)
+        chats = self.chat_repository.get_by_client_id(widget_session.client_id)
         
         # Filter by end-user IP
         filtered_chats = [chat for chat in chats if chat.ip_address == end_user_ip]

@@ -26,7 +26,7 @@ class CreateChatUseCase:
         from src.domain.entities.chat import Chat
         chat_entity = Chat(
             chat_id=str(uuid.uuid4()),
-            client_ip=request.client_id,
+            client_id=request.client_id,
             ip_address=ip_address,
             title=None,
             created_at=now,
@@ -36,7 +36,7 @@ class CreateChatUseCase:
         
         return ChatResponse(
             chat_id=chat.chat_id,
-            client_ip=chat.client_ip,
+            client_id=chat.client_id,
             title=chat.title,
             created_at=chat.created_at
         )

@@ -5,7 +5,7 @@ from typing import Optional
 
 class Chat(BaseModel):
     chat_id: str
-    client_ip: str
+    client_id: str
     ip_address: str
     title: Optional[str]
     created_at: datetime

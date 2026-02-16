@@ -28,15 +28,15 @@ class CreateWidgetChatUseCase:
         # if widget_session.end_user_ip != end_user_ip:
         #    raise ValueError("Session validation failed (IP mismatch)")
         
-        client = self.client_repository.get_by_id(widget_session.client_ip)
+        client = self.client_repository.get_by_id(widget_session.client_id)
         if client is None:
-            raise ValueError(f"Client {widget_session.client_ip} not found")
+            raise ValueError(f"Client {widget_session.client_id} not found")
         
         import uuid
         now = datetime.now(timezone.utc)
         chat = Chat(
             chat_id=str(uuid.uuid4()),
-            client_ip=widget_session.client_ip,
+            client_id=widget_session.client_id,
             ip_address=end_user_ip,
             title=None,
             created_at=now,

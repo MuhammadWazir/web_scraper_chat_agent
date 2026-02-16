@@ -24,7 +24,7 @@ class GenerateWidgetUrlUseCase:
         # Create session
         session = WidgetSession(
             session_token=token,
-            client_ip=client.client_ip,
+            client_id=client.client_id,
             expires_at=expires_at,
             created_at=datetime.now(timezone.utc)
         )

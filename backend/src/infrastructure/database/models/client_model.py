@@ -8,7 +8,8 @@ from src.infrastructure.database.config import Base
 class ClientModel(Base):
     __tablename__ = "clients"
 
-    client_ip = Column(String, primary_key=True, index=True)
+    client_id = Column(String, primary_key=True, index=True)
+    client_ip = Column(String, nullable=False, index=True)
     client_name = Column(String, nullable=False)
     client_url = Column(String, nullable=False)
     api_key_hash = Column(String(255), unique=True, nullable=True, index=True)

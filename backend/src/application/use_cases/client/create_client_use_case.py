@@ -12,7 +12,7 @@ class CreateClientUseCase:
         self.rag_service = rag_service
 
     async def execute(self, request: CreateClientRequest, client_ip: str) -> ClientResponse:
-        existing_client = self.client_repository.get_by_id(client_ip)
+        existing_client = self.client_repository.get_by_ip(client_ip)
         if existing_client:
             raise ValueError(f"Client with IP {client_ip} already exists")
         
@@ -22,7 +22,7 @@ class CreateClientUseCase:
         api_key = generate_api_key()
         api_key_hash = hash_api_key(api_key)
         
-        # Create client in database with IP as primary key
+        # Create client in database (client_id will be auto-generated as UUID)
         client = self.client_repository.create(
             client_ip=client_ip,
             client_name=request.company_name,
@@ -30,6 +30,7 @@ class CreateClientUseCase:
             api_key_hash=api_key_hash
         )
         return ClientResponse(
+            client_id=client.client_id,
             client_ip=client.client_ip,
             company_name=client.client_name,
             website_url=client.client_url,

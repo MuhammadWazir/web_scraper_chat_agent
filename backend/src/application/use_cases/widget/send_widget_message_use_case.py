@@ -63,7 +63,7 @@ class SendWidgetMessageUseCase:
             raise ValueError("Unauthorized access to chat")
         
         # Get client
-        client = self.client_repository.get_by_id(chat.client_ip)
+        client = self.client_repository.get_by_id(chat.client_id)
         if client is None:
             raise ValueError("Client not found")
         

@@ -15,7 +15,7 @@ class WidgetSessionRepository(IWidgetSessionRepository):
     def create(self, widget_session: WidgetSession) -> WidgetSession:
         db_session = WidgetSessionModel(
             session_token=widget_session.session_token,
-            client_ip=widget_session.client_ip,
+            client_id=widget_session.client_id,
             end_user_ip=widget_session.end_user_ip,
             expires_at=widget_session.expires_at,
             created_at=widget_session.created_at
@@ -63,7 +63,7 @@ class WidgetSessionRepository(IWidgetSessionRepository):
     def _to_entity(self, model: WidgetSessionModel) -> WidgetSession:
         return WidgetSession(
             session_token=model.session_token,
-            client_ip=model.client_ip,
+            client_id=model.client_id,
             end_user_ip=model.end_user_ip,
             expires_at=model.expires_at,
             created_at=model.created_at
