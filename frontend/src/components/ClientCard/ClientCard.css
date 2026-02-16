@@ -23,10 +23,41 @@
   box-shadow: none;
 }
 
+.client-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
 .client-card-header h3 {
   color: #333;
   font-size: 1.3rem;
   margin-bottom: 1rem;
+  flex: 1;
+}
+
+.delete-btn-small {
+  background: #ff4444;
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.delete-btn-small:hover {
+  background: #cc0000;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4);
 }
 
 .client-card-body {
@@ -105,4 +136,3 @@
     transform: rotate(360deg);
   }
 }
-

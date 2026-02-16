@@ -5,11 +5,13 @@ from src.container import Container
 from src.application.use_cases.client.create_client_use_case import CreateClientUseCase
 from src.application.use_cases.client.get_client_use_case import GetClientUseCase
 from src.application.use_cases.client.get_all_clients_use_case import GetAllClientsUseCase
+from src.application.use_cases.client.delete_client_use_case import DeleteClientUseCase
 from src.application.use_cases.widget.generate_widget_url_use_case import GenerateWidgetUrlUseCase
 from src.application.dtos.requests.create_client_request import CreateClientRequest
 from src.application.dtos.requests.update_client_request import UpdateClientRequest
 from src.application.dtos.responses.client_response import ClientResponse
 from src.application.use_cases.client.update_client_use_case import UpdateClientUseCase
+from src.presentation.api.dependencies import get_current_user
 
 
 router = APIRouter(prefix="", tags=["clients"])
@@ -21,7 +23,8 @@ container = Container()
 async def create_client(
     request: CreateClientRequest,
     http_request: Request,
-    use_case: CreateClientUseCase = Depends(lambda: container.create_client_use_case())
+    use_case: CreateClientUseCase = Depends(lambda: container.create_client_use_case()),
+    current_user: dict = Depends(get_current_user)
 ):
     try:
         result = await use_case.execute(request, http_request.client.host)
@@ -32,7 +35,8 @@ async def create_client(
 
 @router.get("/clients", response_model=List[ClientResponse])
 async def get_all_clients(
-    use_case: GetAllClientsUseCase = Depends(lambda: container.get_all_clients_use_case())
+    use_case: GetAllClientsUseCase = Depends(lambda: container.get_all_clients_use_case()),
+    current_user: dict = Depends(get_current_user)
 ):
     clients = use_case.execute()
     return [
@@ -50,7 +54,8 @@ async def get_all_clients(
 @router.get("/clients/{client_ip}", response_model=ClientResponse)
 async def get_client(
     client_ip: str,
-    use_case: GetClientUseCase = Depends(lambda: container.get_client_use_case())
+    use_case: GetClientUseCase = Depends(lambda: container.get_client_use_case()),
+    current_user: dict = Depends(get_current_user)
 ):
     try:
         client = use_case.execute(client_ip)
@@ -66,14 +71,33 @@ async def get_client(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.patch("/clients/{client_ip}", response_model=ClientResponse)
 async def update_client(
     client_ip: str,
     request: UpdateClientRequest,
-    use_case: UpdateClientUseCase = Depends(lambda: container.update_client_use_case())
+    use_case: UpdateClientUseCase = Depends(lambda: container.update_client_use_case()),
+    current_user: dict = Depends(get_current_user)
 ):
     try:
         return use_case.execute(client_ip, request)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/clients/{client_ip}")
+async def delete_client(
+    client_ip: str,
+    use_case: DeleteClientUseCase = Depends(lambda: container.delete_client_use_case()),
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a client and their associated Qdrant collection"""
+    try:
+        success = use_case.execute(client_ip)
+        return {"success": success, "message": f"Client {client_ip} deleted successfully"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

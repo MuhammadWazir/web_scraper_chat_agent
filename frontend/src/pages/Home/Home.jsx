@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ClientForm from '../../components/ClientForm/ClientForm';
 import ClientCard from '../../components/ClientCard/ClientCard';
+import { authFetch } from '../../utils/auth';
 import './Home.css';
 
-function Home() {
+function Home({ onLogout }) {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchClients();
@@ -14,7 +17,7 @@ function Home() {
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/clients');
+      const response = await authFetch('/api/clients');
       if (response.ok) {
         const data = await response.json();
         setClients(data);
@@ -26,6 +29,39 @@ function Home() {
     }
   };
 
+  const handleDeleteClient = async (clientIp, e) => {
+    e.stopPropagation();
+
+    if (!window.confirm('Are you sure you want to delete this client? This will also delete all associated data from Qdrant.')) {
+      return;
+    }
+
+    try {
+      const response = await authFetch(`/api/clients/${clientIp}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Remove client from state
+        setClients(prev => prev.filter(client => client.client_ip !== clientIp));
+        alert('Client deleted successfully');
+      } else {
+        const error = await response.json();
+        alert(`Error deleting client: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Error deleting client:', err);
+      alert('Error deleting client. Please try again.');
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      onLogout();
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="home-container">
       <header className="home-header">
@@ -33,6 +69,9 @@ function Home() {
           <h1>Web Scraper Chat Agent</h1>
           <p>Manage your AI chat agents</p>
         </div>
+        <button onClick={handleLogout} className="logout-btn">
+          Logout
+        </button>
       </header>
 
       <div className="home-content">
@@ -53,7 +92,11 @@ function Home() {
           ) : (
             <div className="clients-grid">
               {clients.map((client) => (
-                <ClientCard key={client.client_ip} client={client} />
+                <ClientCard
+                  key={client.client_ip}
+                  client={client}
+                  onDelete={handleDeleteClient}
+                />
               ))}
             </div>
           )}

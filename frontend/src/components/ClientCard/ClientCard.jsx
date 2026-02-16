@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ClientCard.css';
 
-function ClientCard({ client }) {
+function ClientCard({ client, onDelete }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
@@ -13,6 +13,15 @@ function ClientCard({ client }) {
     <div className="client-card" onClick={handleClick}>
       <div className="client-card-header">
         <h3>{client.company_name || 'Unknown Company'}</h3>
+        {onDelete && (
+          <button
+            className="delete-btn-small"
+            onClick={(e) => onDelete(client.client_ip, e)}
+            title="Delete client"
+          >
+            ×
+          </button>
+        )}
       </div>
       <div className="client-card-body">
         <p className="client-url">

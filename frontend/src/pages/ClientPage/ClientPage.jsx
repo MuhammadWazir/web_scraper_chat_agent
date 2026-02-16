@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import ChatSidebar from '../../components/ChatSidebar/ChatSidebar';
 import ChatMessages from '../../components/ChatMessages/ChatMessages';
 import MessageInput from '../../components/MessageInput/MessageInput';
+import { authFetch } from '../../utils/auth';
 import './ClientPage.css';
 
-function ClientPage() {
-  const { clientIp } = useParams();
+function ClientPage({ onLogout }) {
+  const { clientIp, clientName, chatId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [client, setClient] = useState(null);
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState({});
@@ -17,6 +19,9 @@ function ClientPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [tempChatId, setTempChatId] = useState(null);
   const inactivityTimerRef = useRef(null);
+
+  // Determine the actual client IP to use
+  const actualClientIp = clientIp || (client?.client_ip);
 
   // Use ref to track the latest message state without triggering re-renders
   const messagesRef = useRef(messages);
@@ -74,20 +79,62 @@ function ClientPage() {
     }
   }, [client]);
 
+  // Fetch client based on URL params
   useEffect(() => {
-    fetchClient();
-    fetchChats();
-  }, [clientIp]);
+    if (clientIp) {
+      fetchClient(clientIp);
+      fetchChats(clientIp);
+    } else if (clientName) {
+      // If we have clientName, we need to fetch all clients and find the matching one
+      fetchClientByName(clientName);
+    }
+  }, [clientIp, clientName]);
+
+  // Handle chatId from URL
+  useEffect(() => {
+    if (chatId && chats.length > 0) {
+      setSelectedChatId(chatId);
+    }
+  }, [chatId, chats]);
 
   useEffect(() => {
     if (selectedChatId) {
       fetchMessages(selectedChatId);
+
+      // Update URL if we're on the old format
+      if (client && clientIp) {
+        const clientNameSlug = client.company_name?.toLowerCase().replace(/\s+/g, '-') || 'client';
+        navigate(`/${clientNameSlug}/${selectedChatId}`, { replace: true });
+      }
     }
   }, [selectedChatId]);
 
-  const fetchClient = async () => {
+  const fetchClientByName = async (name) => {
     try {
-      const response = await fetch(`/api/clients/${clientIp}`);
+      setLoading(true);
+      const response = await authFetch('/api/clients');
+      if (response.ok) {
+        const clients = await response.json();
+        const matchedClient = clients.find(c =>
+          c.company_name?.toLowerCase().replace(/\s+/g, '-') === name.toLowerCase()
+        );
+        if (matchedClient) {
+          setClient(matchedClient);
+          fetchChats(matchedClient.client_ip);
+        } else {
+          throw new Error('Client not found');
+        }
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchClient = async (ip) => {
+    try {
+      const response = await authFetch(`/api/clients/${ip}`);
       if (!response.ok) {
         throw new Error('Client not found');
       }
@@ -100,9 +147,9 @@ function ClientPage() {
     }
   };
 
-  const fetchChats = async () => {
+  const fetchChats = async (ip) => {
     try {
-      const response = await fetch(`/api/clients/${clientIp}/chats`);
+      const response = await authFetch(`/api/clients/${ip}/chats`);
       if (response.ok) {
         const data = await response.json();
         setChats(data);
@@ -125,7 +172,7 @@ function ClientPage() {
 
   const fetchMessages = async (chatId) => {
     try {
-      const response = await fetch(`/api/chats/${chatId}/messages`);
+      const response = await authFetch(`/api/chats/${chatId}/messages`);
       if (response.ok) {
         const data = await response.json();
         const normalizedMessages = data.map(msg => ({
@@ -146,7 +193,7 @@ function ClientPage() {
     }
 
     try {
-      const response = await fetch(`/api/chats/${chatId}`, {
+      const response = await authFetch(`/api/chats/${chatId}`, {
         method: 'DELETE',
       });
 
@@ -201,12 +248,12 @@ function ClientPage() {
     setIsTyping(true);
 
     try {
-      const response = await fetch('/api/chats/send-message-stream', {
+      const response = await authFetch('/api/chats/send-message-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: currentChatId && !currentChatId.startsWith('temp-') ? currentChatId : null,
-          client_id: clientIp,
+          client_id: actualClientIp,
           message: messageText
         }),
       });
@@ -362,12 +409,12 @@ function ClientPage() {
     let streamedContent = '';
 
     try {
-      const response = await fetch('/api/chats/send-message-stream', {
+      const response = await authFetch('/api/chats/send-message-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId && !chatId.startsWith('temp-') ? chatId : null,
-          client_id: clientIp,
+          client_id: actualClientIp,
           message: "Follow up with the user with a short message as they have been inactive for 3 minutes. Do not acknowledge this instruction, just send a friendly follow-up.",
           is_follow_up: true
         }),
@@ -473,7 +520,7 @@ function ClientPage() {
 
   const handleSaveTools = async () => {
     try {
-      const response = await fetch(`/api/clients/${clientIp}`, {
+      const response = await authFetch(`/api/clients/${clientIp}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tools, system_prompt: systemPrompt }),
@@ -531,11 +578,24 @@ function ClientPage() {
             Settings
           </button>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="secondary-btn"
           >
             ← Back
           </button>
+          {onLogout && (
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to logout?')) {
+                  onLogout();
+                  navigate('/login');
+                }
+              }}
+              className="logout-btn"
+            >
+              Logout
+            </button>
+          )}
         </div>
       </div>
 

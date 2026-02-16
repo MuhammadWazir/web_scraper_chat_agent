@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ApiKeyModal from '../ApiKeyModal/ApiKeyModal';
+import { authFetch } from '../../utils/auth';
 import './ClientForm.css';
 
 function ClientForm({ onClientCreated }) {
@@ -28,7 +29,7 @@ function ClientForm({ onClientCreated }) {
     try {
       setCreating(true);
 
-      const response = await fetch('/api/create-client', {
+      const response = await authFetch('/api/create-client', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

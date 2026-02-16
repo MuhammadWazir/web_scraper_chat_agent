@@ -9,11 +9,13 @@ from src.infrastructure.database.repositories.message_repository import MessageR
 from src.infrastructure.database.repositories.widget_session_repository import WidgetSessionRepository
 from src.infrastructure.services.RagService import RAGService
 from src.infrastructure.services.ChatTitleService import ChatTitleService
+from src.infrastructure.clients.vector_store_client import VectorStoreClient
 
 from src.application.use_cases.client.create_client_use_case import CreateClientUseCase
 from src.application.use_cases.client.update_client_use_case import UpdateClientUseCase
 from src.application.use_cases.client.get_client_use_case import GetClientUseCase
 from src.application.use_cases.client.get_all_clients_use_case import GetAllClientsUseCase
+from src.application.use_cases.client.delete_client_use_case import DeleteClientUseCase
 from src.application.use_cases.chat.create_chat_use_case import CreateChatUseCase
 from src.application.use_cases.chat.get_client_chats_use_case import GetClientChatsUseCase
 from src.application.use_cases.chat.delete_chat_use_case import DeleteChatUseCase
@@ -63,6 +65,8 @@ class Container(containers.DeclarativeContainer):
     
     chat_title_service = providers.Singleton(ChatTitleService)
     
+    vector_store_client = providers.Singleton(VectorStoreClient)
+    
     # Use Cases - factory (create new instance for each use)
     create_client_use_case = providers.Factory(
         CreateClientUseCase,
@@ -73,6 +77,12 @@ class Container(containers.DeclarativeContainer):
     update_client_use_case = providers.Factory(
         UpdateClientUseCase,
         client_repository=client_repository
+    )
+    
+    delete_client_use_case = providers.Factory(
+        DeleteClientUseCase,
+        client_repository=client_repository,
+        vector_store_client=vector_store_client
     )
     
     create_chat_use_case = providers.Factory(
