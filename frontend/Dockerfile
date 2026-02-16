@@ -8,7 +8,11 @@ RUN npm run build
 
 # Production stage
 FROM nginx:stable-alpine AS production-stage
+
+# Build argument to select nginx config (default: local)
+ARG NGINX_CONFIG=nginx.conf
+
 COPY --from=build-stage /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+COPY ${NGINX_CONFIG} /etc/nginx/conf.d/default.conf
+EXPOSE 80 443
 CMD ["nginx", "-g", "daemon off;"]

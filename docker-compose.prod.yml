@@ -36,7 +36,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NGINX_CONFIG: nginx.conf
+        NGINX_CONFIG: nginx.prod.conf  # Use production nginx config
     container_name: web_scraper_frontend
     restart: always
     ports:
@@ -47,7 +47,7 @@ services:
       - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro
     environment:
-      - VITE_API_URL=http://3.106.249.0:8000
+      - VITE_API_URL=https://demo.feirto.com
 
   widget:
     build:
