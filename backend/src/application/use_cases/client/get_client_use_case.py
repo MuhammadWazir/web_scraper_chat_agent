@@ -5,8 +5,8 @@ class GetClientUseCase:
     def __init__(self, client_repository: IClientRepository):
         self.client_repository = client_repository
     
-    def execute(self, client_ip: str):
-        client = self.client_repository.get_by_id(client_ip)
+    def execute(self, client_id: str):
+        client = self.client_repository.get_by_id(client_id)
         if client is None:
-            raise ValueError(f"Client with IP {client_ip} not found")
+            raise ValueError(f"Client with ID {client_id} not found")
         return client

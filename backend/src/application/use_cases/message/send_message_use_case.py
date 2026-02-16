@@ -52,7 +52,7 @@ class SendMessageUseCase:
             now = datetime.now(timezone.utc)
             chat = Chat(
                 chat_id=str(uuid.uuid4()),
-                client_ip=request.client_id,
+                client_id=request.client_id,
                 ip_address=ip_address,
                 title=None,
                 created_at=now,
