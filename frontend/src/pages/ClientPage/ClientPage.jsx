@@ -7,7 +7,7 @@ import { authFetch } from '../../utils/auth';
 import './ClientPage.css';
 
 function ClientPage({ onLogout }) {
-  const { clientIp, clientName, chatId } = useParams();
+  const { clientId, clientName, chatId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const [client, setClient] = useState(null);
@@ -20,8 +20,8 @@ function ClientPage({ onLogout }) {
   const [tempChatId, setTempChatId] = useState(null);
   const inactivityTimerRef = useRef(null);
 
-  // Determine the actual client IP to use
-  const actualClientIp = clientIp || (client?.client_ip);
+  // Determine the actual client ID to use
+  const actualClientId = clientId || (client?.client_id);
 
   // Use ref to track the latest message state without triggering re-renders
   const messagesRef = useRef(messages);
@@ -81,14 +81,14 @@ function ClientPage({ onLogout }) {
 
   // Fetch client based on URL params
   useEffect(() => {
-    if (clientIp) {
-      fetchClient(clientIp);
-      fetchChats(clientIp);
+    if (clientId) {
+      fetchClient(clientId);
+      fetchChats(clientId);
     } else if (clientName) {
       // If we have clientName, we need to fetch all clients and find the matching one
       fetchClientByName(clientName);
     }
-  }, [clientIp, clientName]);
+  }, [clientId, clientName]);
 
   // Handle chatId from URL
   useEffect(() => {
@@ -102,7 +102,7 @@ function ClientPage({ onLogout }) {
       fetchMessages(selectedChatId);
 
       // Update URL if we're on the old format
-      if (client && clientIp) {
+      if (client && clientId) {
         const clientNameSlug = client.company_name?.toLowerCase().replace(/\s+/g, '-') || 'client';
         navigate(`/${clientNameSlug}/${selectedChatId}`, { replace: true });
       }
@@ -120,7 +120,7 @@ function ClientPage({ onLogout }) {
         );
         if (matchedClient) {
           setClient(matchedClient);
-          fetchChats(matchedClient.client_ip);
+          fetchChats(matchedClient.client_id);
         } else {
           throw new Error('Client not found');
         }
@@ -132,9 +132,9 @@ function ClientPage({ onLogout }) {
     }
   };
 
-  const fetchClient = async (ip) => {
+  const fetchClient = async (id) => {
     try {
-      const response = await authFetch(`/api/clients/${ip}`);
+      const response = await authFetch(`/api/clients/${id}`);
       if (!response.ok) {
         throw new Error('Client not found');
       }
@@ -147,9 +147,9 @@ function ClientPage({ onLogout }) {
     }
   };
 
-  const fetchChats = async (ip) => {
+  const fetchChats = async (id) => {
     try {
-      const response = await authFetch(`/api/clients/${ip}/chats`);
+      const response = await authFetch(`/api/clients/${id}/chats`);
       if (response.ok) {
         const data = await response.json();
         setChats(data);
@@ -253,7 +253,7 @@ function ClientPage({ onLogout }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: currentChatId && !currentChatId.startsWith('temp-') ? currentChatId : null,
-          client_id: actualClientIp,
+          client_id: actualClientId,
           message: messageText
         }),
       });
@@ -414,7 +414,7 @@ function ClientPage({ onLogout }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId && !chatId.startsWith('temp-') ? chatId : null,
-          client_id: actualClientIp,
+          client_id: actualClientId,
           message: "Follow up with the user with a short message as they have been inactive for 3 minutes. Do not acknowledge this instruction, just send a friendly follow-up.",
           is_follow_up: true
         }),
@@ -520,7 +520,7 @@ function ClientPage({ onLogout }) {
 
   const handleSaveTools = async () => {
     try {
-      const response = await authFetch(`/api/clients/${clientIp}`, {
+      const response = await authFetch(`/api/clients/${clientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tools, system_prompt: systemPrompt }),

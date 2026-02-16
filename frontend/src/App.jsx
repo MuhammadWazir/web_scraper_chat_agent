@@ -46,7 +46,7 @@ function App() {
           element={isAuthenticated ? <ClientPage onLogout={handleLogout} /> : <Navigate to="/login" />}
         />
         <Route
-          path="/client/:clientIp"
+          path="/client/:clientId"
           element={isAuthenticated ? <ClientPage onLogout={handleLogout} /> : <Navigate to="/login" />}
         />
         <Route

@@ -6,7 +6,7 @@ function ClientCard({ client, onDelete }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/client/${client.client_ip}`);
+    navigate(`/client/${client.client_id}`);
   };
 
   return (
@@ -16,7 +16,7 @@ function ClientCard({ client, onDelete }) {
         {onDelete && (
           <button
             className="delete-btn-small"
-            onClick={(e) => onDelete(client.client_ip, e)}
+            onClick={(e) => onDelete(client.client_id, e)}
             title="Delete client"
           >
             ×

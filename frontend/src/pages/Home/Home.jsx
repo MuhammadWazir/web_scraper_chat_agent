@@ -29,7 +29,7 @@ function Home({ onLogout }) {
     }
   };
 
-  const handleDeleteClient = async (clientIp, e) => {
+  const handleDeleteClient = async (clientId, e) => {
     e.stopPropagation();
 
     if (!window.confirm('Are you sure you want to delete this client? This will also delete all associated data from Qdrant.')) {
@@ -37,13 +37,13 @@ function Home({ onLogout }) {
     }
 
     try {
-      const response = await authFetch(`/api/clients/${clientIp}`, {
+      const response = await authFetch(`/api/clients/${clientId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         // Remove client from state
-        setClients(prev => prev.filter(client => client.client_ip !== clientIp));
+        setClients(prev => prev.filter(client => client.client_id !== clientId));
         alert('Client deleted successfully');
       } else {
         const error = await response.json();
@@ -93,7 +93,7 @@ function Home({ onLogout }) {
             <div className="clients-grid">
               {clients.map((client) => (
                 <ClientCard
-                  key={client.client_ip}
+                  key={client.client_id}
                   client={client}
                   onDelete={handleDeleteClient}
                 />
