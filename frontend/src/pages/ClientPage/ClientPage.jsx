@@ -185,7 +185,7 @@ function ClientPage({ onLogout }) {
     }
 
     try {
-      const response = await authFetch(`/api/chats/${chatId}`, {
+      const response = await fetch(`/api/chats/${chatId}`, {
         method: 'DELETE',
       });
 
@@ -240,7 +240,7 @@ function ClientPage({ onLogout }) {
     setIsTyping(true);
 
     try {
-      const response = await authFetch('/api/chats/send-message-stream', {
+      const response = await fetch('/api/chats/send-message-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -401,7 +401,7 @@ function ClientPage({ onLogout }) {
     let streamedContent = '';
 
     try {
-      const response = await authFetch('/api/chats/send-message-stream', {
+      const response = await fetch('/api/chats/send-message-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -562,22 +562,20 @@ function ClientPage({ onLogout }) {
           <h1>{client?.company_name || 'Client'}</h1>
           <p className="client-url">{client?.website_url}</p>
         </div>
-        <div className="client-header-actions">
+        <div className="header-actions">
           {isAdmin && (
             <>
               <button
-                className="tools-btn"
+                className="primary-btn"
                 onClick={() => setShowToolsModal(true)}
-                title="Configure Chatbot Settings"
               >
-                <i className="fas fa-cog"></i> Settings
+                Settings
               </button>
               <button
                 onClick={() => navigate('/dashboard')}
-                className="dashboard-btn"
-                title="Return to Dashboard"
+                className="secondary-btn"
               >
-                <i className="fas fa-home"></i> Back
+                ← Back
               </button>
               <button
                 onClick={() => {

@@ -43,7 +43,7 @@ function App() {
         />
         <Route
           path="/:clientName/:chatId?"
-          element={<ClientPage />}
+          element={<ClientPage onLogout={handleLogout} />}
         />
         <Route
           path="/prompts"

@@ -287,3 +287,20 @@ select:focus {
   padding-top: 20px;
   border-top: 1px solid #f0f0f0;
 }
+
+.logout-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: 2px solid #e53e3e;
+  background: white;
+  color: #e53e3e;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: #e53e3e;
+  color: white;
+  transform: translateY(-2px);
+}
