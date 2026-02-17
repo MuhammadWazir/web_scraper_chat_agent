@@ -6,7 +6,8 @@ function ClientCard({ client, onDelete }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/client/${client.client_id}`);
+    const clientNameSlug = client.company_name?.toLowerCase().replace(/\s+/g, '-') || 'client';
+    navigate(`/${clientNameSlug}`);
   };
 
   return (

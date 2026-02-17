@@ -7,7 +7,7 @@ import { authFetch } from '../../utils/auth';
 import './ClientPage.css';
 
 function ClientPage({ onLogout }) {
-  const { clientId, clientName, chatId } = useParams();
+  const { clientName, chatId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const [client, setClient] = useState(null);
@@ -21,7 +21,7 @@ function ClientPage({ onLogout }) {
   const inactivityTimerRef = useRef(null);
 
   // Determine the actual client ID to use
-  const actualClientId = clientId || (client?.client_id);
+  const actualClientId = client?.client_id;
 
   // Use ref to track the latest message state without triggering re-renders
   const messagesRef = useRef(messages);
@@ -81,14 +81,11 @@ function ClientPage({ onLogout }) {
 
   // Fetch client based on URL params
   useEffect(() => {
-    if (clientId) {
-      fetchClient(clientId);
-      fetchChats(clientId);
-    } else if (clientName) {
+    if (clientName) {
       // If we have clientName, we need to fetch all clients and find the matching one
       fetchClientByName(clientName);
     }
-  }, [clientId, clientName]);
+  }, [clientName]);
 
   // Handle chatId from URL
   useEffect(() => {
@@ -100,8 +97,13 @@ function ClientPage({ onLogout }) {
   useEffect(() => {
     if (selectedChatId) {
       fetchMessages(selectedChatId);
+
+      // Update URL to /slug/chatId without refresh
+      if (clientName) {
+        navigate(`/${clientName}/${selectedChatId}`, { replace: true });
+      }
     }
-  }, [selectedChatId]);
+  }, [selectedChatId, clientName]);
 
   const fetchClientByName = async (name) => {
     try {
