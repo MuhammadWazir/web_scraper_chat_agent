@@ -1,8 +1,10 @@
-﻿from fastapi import FastAPI
+﻿from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+import uuid
 from src.configs.config import load_settings
 from src.container import Container
 from src.presentation.api.routes import client_routes, chat_routes, message_routes, widget_routes, auth_routes
+from src.infrastructure.database.config import session_id_var, SessionLocal
 
 app = FastAPI(
     title="Web Scraper Chat Agent", 
@@ -17,6 +19,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def db_session_middleware(request: Request, call_next):
+    # Set a unique session ID for this request scope
+    token = str(uuid.uuid4())
+    session_id_var.set(token)
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        # Close the session and return connection to pool
+        SessionLocal.remove()
 
 # Load settings
 settings = load_settings()

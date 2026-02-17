@@ -37,8 +37,8 @@ class Container(containers.DeclarativeContainer):
     # Configuration
     config = providers.Configuration()
     
-    # Database session factory
-    db_session = providers.Factory(SessionLocal)
+    # Database session proxy - using Object to inject the scoped_session registry itself
+    db_session = providers.Object(SessionLocal)
     
     client_repository = providers.Factory(
         ClientRepository,
