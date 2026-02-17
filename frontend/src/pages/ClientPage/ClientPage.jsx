@@ -109,18 +109,13 @@ function ClientPage({ onLogout }) {
   const fetchClientByName = async (name) => {
     try {
       setLoading(true);
-      const response = await authFetch('/api/clients');
+      const response = await fetch(`/api/clients/by-slug/${name.toLowerCase()}`);
       if (response.ok) {
-        const clients = await response.json();
-        const matchedClient = clients.find(c =>
-          c.company_name?.toLowerCase().replace(/\s+/g, '-') === name.toLowerCase()
-        );
-        if (matchedClient) {
-          setClient(matchedClient);
-          fetchChats(matchedClient.client_id);
-        } else {
-          throw new Error('Client not found');
-        }
+        const matchedClient = await response.json();
+        setClient(matchedClient);
+        fetchChats(matchedClient.client_id);
+      } else {
+        throw new Error('Client not found');
       }
     } catch (err) {
       setError(err.message);
@@ -131,7 +126,7 @@ function ClientPage({ onLogout }) {
 
   const fetchClient = async (id) => {
     try {
-      const response = await authFetch(`/api/clients/${id}`);
+      const response = await fetch(`/api/clients/${id}`);
       if (!response.ok) {
         throw new Error('Client not found');
       }
@@ -146,7 +141,7 @@ function ClientPage({ onLogout }) {
 
   const fetchChats = async (id) => {
     try {
-      const response = await authFetch(`/api/clients/${id}/chats`);
+      const response = await fetch(`/api/clients/${id}/chats`);
       if (response.ok) {
         const data = await response.json();
         setChats(data);
@@ -169,7 +164,7 @@ function ClientPage({ onLogout }) {
 
   const fetchMessages = async (chatId) => {
     try {
-      const response = await authFetch(`/api/chats/${chatId}/messages`);
+      const response = await fetch(`/api/chats/${chatId}/messages`);
       if (response.ok) {
         const data = await response.json();
         const normalizedMessages = data.map(msg => ({
@@ -517,7 +512,7 @@ function ClientPage({ onLogout }) {
 
   const handleSaveTools = async () => {
     try {
-      const response = await authFetch(`/api/clients/${clientId}`, {
+      const response = await authFetch(`/api/clients/${actualClientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tools, system_prompt: systemPrompt }),
@@ -568,7 +563,7 @@ function ClientPage({ onLogout }) {
           <p className="client-url">{client?.website_url}</p>
         </div>
         <div className="client-header-actions">
-          {isAdmin ? (
+          {isAdmin && (
             <>
               <button
                 className="tools-btn"
@@ -576,6 +571,13 @@ function ClientPage({ onLogout }) {
                 title="Configure Chatbot Settings"
               >
                 <i className="fas fa-cog"></i> Settings
+              </button>
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="dashboard-btn"
+                title="Return to Dashboard"
+              >
+                <i className="fas fa-home"></i> Back
               </button>
               <button
                 onClick={() => {
@@ -589,21 +591,7 @@ function ClientPage({ onLogout }) {
                 Logout
               </button>
             </>
-          ) : (
-            <button
-              onClick={() => navigate('/login')}
-              className="login-btn"
-            >
-              Admin Login
-            </button>
           )}
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="dashboard-btn"
-            title="Return to Dashboard"
-          >
-            <i className="fas fa-home"></i>
-          </button>
         </div>
       </div>
 

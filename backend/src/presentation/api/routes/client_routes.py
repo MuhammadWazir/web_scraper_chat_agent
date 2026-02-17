@@ -95,6 +95,29 @@ async def get_client(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/clients/by-slug/{slug}", response_model=ClientResponse)
+async def get_client_by_slug(
+    slug: str,
+    use_case: GetClientUseCase = Depends(lambda: container.get_client_use_case())
+):
+    """Get client details by name slug (Public)"""
+    try:
+        client = use_case.execute_by_slug(slug)
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        return ClientResponse(
+            client_id=client.client_id,
+            client_ip=client.client_ip,
+            company_name=client.client_name,
+            website_url=client.client_url,
+            tools=client.tools,
+            system_prompt=client.system_prompt,
+            created_at=client.created_at
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.patch("/clients/{client_id}", response_model=ClientResponse)
 async def update_client(
     client_id: str,
