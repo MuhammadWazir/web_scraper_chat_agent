@@ -279,11 +279,10 @@ function ClientPage({ onLogout }) {
 
           try {
             const jsonData = JSON.parse(trimmedLine);
-            if (!firstChunkReceived && (jsonData.type === 'content' || jsonData.type === 'status_hint')) {
+            if (!firstChunkReceived) {
               setIsTyping(false);
               firstChunkReceived = true;
             }
-
             if (jsonData.type === 'chat_created') {
               realChatId = jsonData.chat_id;
               newChatCreated = true;
