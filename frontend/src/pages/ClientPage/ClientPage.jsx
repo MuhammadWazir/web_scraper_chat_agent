@@ -286,9 +286,18 @@ function ClientPage({ onLogout }) {
             if (jsonData.type === 'chat_created') {
               realChatId = jsonData.chat_id;
               newChatCreated = true;
+
+              setMessages(prev => {
+                const tempMessages = prev[currentChatId] || [];
+
+                return {
+                  ...prev,
+                  [realChatId]: tempMessages, // copy everything over
+                };
+              });
+
               setSelectedChatId(realChatId);
               setTempChatId(null);
-              updateStreamingUI(streamedContent, currentStatusHint);
             } else if (jsonData.type === 'title_updated') {
               chatTitle = jsonData.title;
             } else if (jsonData.type === 'status_hint') {
