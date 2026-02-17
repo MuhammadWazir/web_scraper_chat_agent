@@ -248,7 +248,7 @@ function ClientPage({ onLogout }) {
 
           const aiMessage = {
             message_id: tempAiMessageId,
-            content: content,
+            content: content || " ",
             statusHint: hint,
             ai_generated: true,
             role: 'assistant',

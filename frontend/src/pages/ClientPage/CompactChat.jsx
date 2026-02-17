@@ -119,24 +119,30 @@ function CompactChat({
                                             <>
                                                 {message.isFollowUp && <div className="compact-follow-up-badge">Follow-up</div>}
 
-                                                {message.streaming && !message.statusHint && !message.content && (
-                                                    <div className="compact-typing-indicator-inline">
-                                                        <span></span>
-                                                        <span></span>
-                                                        <span></span>
+                                                {(message.streaming || message.statusHint || message.content) && (
+                                                    <div className="compact-message-inner">
+                                                        {message.streaming && !message.statusHint && !message.content && (
+                                                            <div className="compact-typing-indicator-inline">
+                                                                <span></span>
+                                                                <span></span>
+                                                                <span></span>
+                                                            </div>
+                                                        )}
+
+                                                        {message.statusHint && (
+                                                            <div className="compact-status-hint">
+                                                                {message.statusHint}
+                                                            </div>
+                                                        )}
+
+                                                        {message.content && (
+                                                            <div className="compact-message-content">
+                                                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
 
-                                                {message.streaming && message.statusHint && (
-                                                    <div className="compact-status-hint">
-                                                        {message.statusHint}
-                                                    </div>
-                                                )}
-                                                {message.content && (
-                                                    <div className="compact-message-content">
-                                                        <ReactMarkdown>{message.content}</ReactMarkdown>
-                                                    </div>
-                                                )}
                                                 {message.hints && message.hints.length > 0 && (
                                                     <div className="compact-message-hints">
                                                         {message.hints.map((hint, hintIdx) => (
