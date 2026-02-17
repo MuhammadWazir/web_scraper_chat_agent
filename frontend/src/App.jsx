@@ -43,7 +43,7 @@ function App() {
         />
         <Route
           path="/:clientName/:chatId?"
-          element={isAuthenticated ? <ClientPage onLogout={handleLogout} /> : <Navigate to="/login" />}
+          element={<ClientPage />}
         />
         <Route
           path="/prompts"

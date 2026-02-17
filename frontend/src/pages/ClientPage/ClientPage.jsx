@@ -10,6 +10,7 @@ function ClientPage({ onLogout }) {
   const { clientName, chatId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const isAdmin = localStorage.getItem('isAdminLoggedIn') === 'true';
   const [client, setClient] = useState(null);
   const [chats, setChats] = useState([]);
   const [messages, setMessages] = useState({});
@@ -566,32 +567,43 @@ function ClientPage({ onLogout }) {
           <h1>{client?.company_name || 'Client'}</h1>
           <p className="client-url">{client?.website_url}</p>
         </div>
-        <div className="header-actions">
-          <button
-            onClick={() => setShowToolsModal(true)}
-            className="primary-btn"
-          >
-            Settings
-          </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="secondary-btn"
-          >
-            ← Back
-          </button>
-          {onLogout && (
+        <div className="client-header-actions">
+          {isAdmin ? (
+            <>
+              <button
+                className="tools-btn"
+                onClick={() => setShowToolsModal(true)}
+                title="Configure Chatbot Settings"
+              >
+                <i className="fas fa-cog"></i> Settings
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to logout?')) {
+                    if (onLogout) onLogout();
+                    navigate('/login');
+                  }
+                }}
+                className="logout-btn"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
             <button
-              onClick={() => {
-                if (window.confirm('Are you sure you want to logout?')) {
-                  onLogout();
-                  navigate('/login');
-                }
-              }}
-              className="logout-btn"
+              onClick={() => navigate('/login')}
+              className="login-btn"
             >
-              Logout
+              Admin Login
             </button>
           )}
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="dashboard-btn"
+            title="Return to Dashboard"
+          >
+            <i className="fas fa-home"></i>
+          </button>
         </div>
       </div>
 
@@ -617,99 +629,101 @@ function ClientPage({ onLogout }) {
         </div>
       </div>
 
-      {showToolsModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2>Client Settings</h2>
+      {
+        showToolsModal && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2>Client Settings</h2>
 
-            <div className="system-prompt-section" style={{ marginBottom: '30px' }}>
-              <h3>System Prompt</h3>
-              <p style={{ fontSize: '0.9em', color: '#888', marginBottom: '10px' }}>
-                Define custom instructions for the AI assistant. This will be injected into every conversation.
-              </p>
-              <textarea
-                placeholder="Enter system prompt instructions here... (e.g., You are a helpful customer service agent for XYZ company.)"
-                value={systemPrompt}
-                onChange={e => setSystemPrompt(e.target.value)}
-                className="chat-input"
-                style={{ minHeight: '150px', fontFamily: 'inherit', resize: 'vertical' }}
-              />
-            </div>
-
-            <div className="tools-list">
-              <h3>API Tools</h3>
-              {tools.length === 0 && <p>No tools configured.</p>}
-              {tools.map((tool, index) => (
-                <div key={index} className="tool-item">
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <strong>{tool.name}</strong>
-                    <button onClick={() => handleRemoveTool(index)} className="delete-btn">Remove</button>
-                  </div>
-                  <p>{tool.description}</p>
-                  <code>{tool.method} {tool.url}</code>
-                </div>
-              ))}
-            </div>
-
-            <div className="add-tool-form">
-              <h3>Add New Tool</h3>
-              <div style={{ display: 'grid', gap: '10px' }}>
-                <input
-                  placeholder="Name (e.g., get_weather)"
-                  value={newTool.name}
-                  onChange={e => setNewTool({ ...newTool, name: e.target.value })}
-                  className="chat-input"
-                />
-                <input
-                  placeholder="Description"
-                  value={newTool.description}
-                  onChange={e => setNewTool({ ...newTool, description: e.target.value })}
-                  className="chat-input"
-                />
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <select
-                    value={newTool.method}
-                    onChange={e => setNewTool({ ...newTool, method: e.target.value })}
-                  >
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="DELETE">DELETE</option>
-                  </select>
-                  <input
-                    placeholder="URL Path (e.g., /api/weather)"
-                    value={newTool.url}
-                    onChange={e => setNewTool({ ...newTool, url: e.target.value })}
-                    className="chat-input"
-                    style={{ flex: 1 }}
-                  />
-                </div>
-                <select
-                  value={newTool.auth}
-                  onChange={e => setNewTool({ ...newTool, auth: e.target.value })}
-                >
-                  <option value="none">No Auth</option>
-                  <option value="bearer">Bearer Token</option>
-                </select>
+              <div className="system-prompt-section" style={{ marginBottom: '30px' }}>
+                <h3>System Prompt</h3>
+                <p style={{ fontSize: '0.9em', color: '#888', marginBottom: '10px' }}>
+                  Define custom instructions for the AI assistant. This will be injected into every conversation.
+                </p>
                 <textarea
-                  placeholder='Inputs JSON schema (e.g., {"query": {"city": {"type": "string"}}})'
-                  value={newTool.inputs}
-                  onChange={e => setNewTool({ ...newTool, inputs: e.target.value })}
+                  placeholder="Enter system prompt instructions here... (e.g., You are a helpful customer service agent for XYZ company.)"
+                  value={systemPrompt}
+                  onChange={e => setSystemPrompt(e.target.value)}
                   className="chat-input"
-                  style={{ minHeight: '100px', fontFamily: 'monospace' }}
+                  style={{ minHeight: '150px', fontFamily: 'inherit', resize: 'vertical' }}
                 />
-                <button onClick={handleAddTool} className="primary-btn">Add Tool</button>
+              </div>
+
+              <div className="tools-list">
+                <h3>API Tools</h3>
+                {tools.length === 0 && <p>No tools configured.</p>}
+                {tools.map((tool, index) => (
+                  <div key={index} className="tool-item">
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <strong>{tool.name}</strong>
+                      <button onClick={() => handleRemoveTool(index)} className="delete-btn">Remove</button>
+                    </div>
+                    <p>{tool.description}</p>
+                    <code>{tool.method} {tool.url}</code>
+                  </div>
+                ))}
+              </div>
+
+              <div className="add-tool-form">
+                <h3>Add New Tool</h3>
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <input
+                    placeholder="Name (e.g., get_weather)"
+                    value={newTool.name}
+                    onChange={e => setNewTool({ ...newTool, name: e.target.value })}
+                    className="chat-input"
+                  />
+                  <input
+                    placeholder="Description"
+                    value={newTool.description}
+                    onChange={e => setNewTool({ ...newTool, description: e.target.value })}
+                    className="chat-input"
+                  />
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <select
+                      value={newTool.method}
+                      onChange={e => setNewTool({ ...newTool, method: e.target.value })}
+                    >
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="PUT">PUT</option>
+                      <option value="DELETE">DELETE</option>
+                    </select>
+                    <input
+                      placeholder="URL Path (e.g., /api/weather)"
+                      value={newTool.url}
+                      onChange={e => setNewTool({ ...newTool, url: e.target.value })}
+                      className="chat-input"
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  <select
+                    value={newTool.auth}
+                    onChange={e => setNewTool({ ...newTool, auth: e.target.value })}
+                  >
+                    <option value="none">No Auth</option>
+                    <option value="bearer">Bearer Token</option>
+                  </select>
+                  <textarea
+                    placeholder='Inputs JSON schema (e.g., {"query": {"city": {"type": "string"}}})'
+                    value={newTool.inputs}
+                    onChange={e => setNewTool({ ...newTool, inputs: e.target.value })}
+                    className="chat-input"
+                    style={{ minHeight: '100px', fontFamily: 'monospace' }}
+                  />
+                  <button onClick={handleAddTool} className="primary-btn">Add Tool</button>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button onClick={() => setShowToolsModal(false)} className="secondary-btn">Cancel</button>
+                <button onClick={handleSaveTools} className="primary-btn">Save Changes</button>
               </div>
             </div>
-
-            <div className="modal-actions">
-              <button onClick={() => setShowToolsModal(false)} className="secondary-btn">Cancel</button>
-              <button onClick={handleSaveTools} className="primary-btn">Save Changes</button>
-            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }
 

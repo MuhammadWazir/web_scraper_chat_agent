@@ -76,8 +76,7 @@ async def get_all_clients(
 @router.get("/clients/{client_id}", response_model=ClientResponse)
 async def get_client(
     client_id: str,
-    use_case: GetClientUseCase = Depends(lambda: container.get_client_use_case()),
-    current_user: dict = Depends(get_current_user)
+    use_case: GetClientUseCase = Depends(lambda: container.get_client_use_case())
 ):
     try:
         client = use_case.execute(client_id)
