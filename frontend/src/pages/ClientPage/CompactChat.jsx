@@ -118,6 +118,15 @@ function CompactChat({
                                         {message.ai_generated ? (
                                             <>
                                                 {message.isFollowUp && <div className="compact-follow-up-badge">Follow-up</div>}
+
+                                                {message.streaming && !message.statusHint && !message.content && (
+                                                    <div className="compact-typing-indicator-inline">
+                                                        <span></span>
+                                                        <span></span>
+                                                        <span></span>
+                                                    </div>
+                                                )}
+
                                                 {message.streaming && message.statusHint && (
                                                     <div className="compact-status-hint">
                                                         {message.statusHint}

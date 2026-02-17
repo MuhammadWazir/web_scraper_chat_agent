@@ -277,7 +277,7 @@ function ClientPage({ onLogout }) {
 
           try {
             const jsonData = JSON.parse(trimmedLine);
-            if (!firstChunkReceived) {
+            if (!firstChunkReceived && (jsonData.type === 'content' || jsonData.type === 'status_hint')) {
               setIsTyping(false);
               firstChunkReceived = true;
             }
