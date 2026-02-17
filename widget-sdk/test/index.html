@@ -150,10 +150,6 @@
         <h1>Widget Test SDK</h1>
         <p>Configure and initialize the chat widget for testing.</p>
 
-        <div class="form-group">
-            <label for="session-token">Widget Session Token</label>
-            <input type="text" id="session-token" placeholder="Enter session token from backend">
-        </div>
 
         <div class="form-group">
             <label for="auth-token">Authorization Token (Optional)</label>
@@ -161,8 +157,8 @@
         </div>
 
         <div class="form-group">
-            <label for="backend-url">Backend URL</label>
-            <input type="text" id="backend-url" value="/api">
+            <label for="session-token">Widget Session Token</label>
+            <input type="text" id="session-token" placeholder="Enter session token from backend">
         </div>
 
         <div class="actions">
@@ -182,7 +178,6 @@
         // Load saved values on startup
         document.getElementById('session-token').value = localStorage.getItem('widget_session_token') || '';
         document.getElementById('auth-token').value = localStorage.getItem('widget_auth_token') || '';
-        document.getElementById('backend-url').value = localStorage.getItem('widget_backend_url') || '/api';
 
         function showStatus(msg, isError = false) {
             const statusEl = document.getElementById('status-msg');
@@ -193,7 +188,7 @@
         async function initWidget() {
             const sessionToken = document.getElementById('session-token').value.trim();
             const authToken = document.getElementById('auth-token').value.trim();
-            const backendUrl = document.getElementById('backend-url').value.trim();
+            const backendUrl = '/api';
 
             if (!sessionToken) {
                 showStatus("Session Token is required", true);
@@ -203,7 +198,6 @@
             // Save for next time
             localStorage.setItem('widget_session_token', sessionToken);
             if (authToken) localStorage.setItem('widget_auth_token', authToken);
-            localStorage.setItem('widget_backend_url', backendUrl);
 
             try {
                 showStatus("Initializing...");
@@ -247,7 +241,6 @@
         function resetConfig() {
             localStorage.removeItem('widget_session_token');
             localStorage.removeItem('widget_auth_token');
-            localStorage.removeItem('widget_backend_url');
             location.reload();
         }
     </script>

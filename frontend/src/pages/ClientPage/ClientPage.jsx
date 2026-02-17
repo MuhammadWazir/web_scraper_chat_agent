@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import ChatSidebar from '../../components/ChatSidebar/ChatSidebar';
-import ChatMessages from '../../components/ChatMessages/ChatMessages';
-import MessageInput from '../../components/MessageInput/MessageInput';
+import { useParams, useNavigate } from 'react-router-dom';
 import { authFetch } from '../../utils/auth';
+import CompactChat from './CompactChat';
 import './ClientPage.css';
 
 function ClientPage({ onLogout }) {
   const { clientName, chatId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const isAdmin = localStorage.getItem('isAdminLoggedIn') === 'true';
   const [client, setClient] = useState(null);
   const [chats, setChats] = useState([]);
@@ -21,17 +18,30 @@ function ClientPage({ onLogout }) {
   const [tempChatId, setTempChatId] = useState(null);
   const inactivityTimerRef = useRef(null);
 
+  // Settings Modal State
+  const [showToolsModal, setShowToolsModal] = useState(false);
+  const [tools, setTools] = useState([]);
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [newTool, setNewTool] = useState({
+    name: '',
+    description: '',
+    url: '',
+    method: 'GET',
+    inputs: '{}',
+    auth: 'none'
+  });
+
   // Determine the actual client ID to use
   const actualClientId = client?.client_id;
 
-  // Use ref to track the latest message state without triggering re-renders
+  // Track the messages state
   const messagesRef = useRef(messages);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
+  // Inactivity / Follow-up logic
   useEffect(() => {
-    // Reset timer whenever selected chat, typing status, or messages change
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = null;
@@ -43,7 +53,6 @@ function ClientPage({ onLogout }) {
     if (currentChatId && !isTyping && chatMessages.length > 0) {
       const lastMessage = chatMessages[chatMessages.length - 1];
 
-      // If the last message is from the assistant, wait for 3 minutes
       if ((lastMessage.role === 'assistant' || lastMessage.ai_generated) && !lastMessage.isFollowUp) {
         inactivityTimerRef.current = setTimeout(() => {
           handleSendFollowUp(currentChatId);
@@ -58,33 +67,10 @@ function ClientPage({ onLogout }) {
     };
   }, [selectedChatId, tempChatId, isTyping, messages]);
 
-  /* Tools Management logic */
-  const [showToolsModal, setShowToolsModal] = useState(false);
-  const [tools, setTools] = useState([]);
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [newTool, setNewTool] = useState({
-    name: '',
-    description: '',
-    url: '',
-    method: 'GET',
-    inputs: '{}',
-    auth: 'none'
-  });
-
-  useEffect(() => {
-    if (client && client.tools) {
-      setTools(client.tools);
-    }
-    if (client && client.system_prompt) {
-      setSystemPrompt(client.system_prompt);
-    }
-  }, [client]);
-
-  // Fetch client based on URL params
+  // Fetch client based on slug
   useEffect(() => {
     if (clientName) {
-      // If we have clientName, we need to fetch all clients and find the matching one
-      fetchClientByName(clientName);
+      fetchClientBySlug(clientName);
     }
   }, [clientName]);
 
@@ -95,21 +81,28 @@ function ClientPage({ onLogout }) {
     }
   }, [chatId, chats]);
 
+  // Sync messages and navigate on select
   useEffect(() => {
     if (selectedChatId) {
       fetchMessages(selectedChatId);
-
-      // Update URL to /slug/chatId without refresh
       if (clientName) {
         navigate(`/${clientName}/${selectedChatId}`, { replace: true });
       }
     }
   }, [selectedChatId, clientName]);
 
-  const fetchClientByName = async (name) => {
+  // Update tools/system prompt from client data
+  useEffect(() => {
+    if (client) {
+      setTools(client.tools || []);
+      setSystemPrompt(client.system_prompt || '');
+    }
+  }, [client]);
+
+  const fetchClientBySlug = async (slug) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/clients/by-slug/${name.toLowerCase()}`);
+      const response = await fetch(`/api/clients/by-slug/${slug.toLowerCase()}`);
       if (response.ok) {
         const matchedClient = await response.json();
         setClient(matchedClient);
@@ -117,21 +110,6 @@ function ClientPage({ onLogout }) {
       } else {
         throw new Error('Client not found');
       }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchClient = async (id) => {
-    try {
-      const response = await fetch(`/api/clients/${id}`);
-      if (!response.ok) {
-        throw new Error('Client not found');
-      }
-      const data = await response.json();
-      setClient(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -151,17 +129,6 @@ function ClientPage({ onLogout }) {
     }
   };
 
-  const handleNewChat = () => {
-    setSelectedChatId(null);
-    setTempChatId(null);
-    setIsTyping(false);
-  };
-
-  const handleSelectChat = (chatId) => {
-    setSelectedChatId(chatId);
-    setIsTyping(false);
-  };
-
   const fetchMessages = async (chatId) => {
     try {
       const response = await fetch(`/api/chats/${chatId}/messages`);
@@ -178,6 +145,20 @@ function ClientPage({ onLogout }) {
     }
   };
 
+  const handleNewChat = () => {
+    setSelectedChatId(null);
+    setTempChatId(null);
+    setIsTyping(false);
+    if (clientName) {
+      navigate(`/${clientName}`, { replace: true });
+    }
+  };
+
+  const handleSelectChat = (chatId) => {
+    setSelectedChatId(chatId);
+    setIsTyping(false);
+  };
+
   const handleDeleteChat = async (chatId, e) => {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this chat?')) {
@@ -192,12 +173,7 @@ function ClientPage({ onLogout }) {
       if (response.ok) {
         setChats(prev => prev.filter(chat => chat.chat_id !== chatId));
         if (selectedChatId === chatId) {
-          setSelectedChatId(null);
-          setMessages(prev => {
-            const newMessages = { ...prev };
-            delete newMessages[chatId];
-            return newMessages;
-          });
+          handleNewChat();
         }
       } else {
         const error = await response.json();
@@ -205,7 +181,6 @@ function ClientPage({ onLogout }) {
       }
     } catch (err) {
       console.error('Error deleting chat:', err);
-      alert('Error deleting chat. Please try again.');
     }
   };
 
@@ -250,9 +225,7 @@ function ClientPage({ onLogout }) {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
+      if (!response.ok) throw new Error('Failed to send message');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -264,10 +237,8 @@ function ClientPage({ onLogout }) {
       let buffer = '';
       let firstChunkReceived = false;
 
-      // Inner helper to update messages state directly
       const updateStreamingUI = (content, hint) => {
         const chatKey = newChatCreated ? realChatId : currentChatId;
-
         setMessages(prev => {
           const updates = { ...prev };
           const currentMessages = prev[chatKey] || prev[currentChatId] || [];
@@ -283,31 +254,21 @@ function ClientPage({ onLogout }) {
             created_at: new Date().toISOString()
           };
 
-          // Apply to active key
           updates[chatKey] = [...filteredMessages, aiMessage];
-
-          // CRITICAL: If we just created a chat, also update the old temp key
-          // because the UI state (selectedChatId) might not have re-rendered yet.
           if (newChatCreated && chatKey !== currentChatId) {
             updates[currentChatId] = [...filteredMessages, aiMessage];
           }
-
           return updates;
         });
       };
 
-      // Process streaming response
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
-        // Fix fused JSONs if any
         buffer = buffer.replace(/}\s*{/g, '}\n{');
         const lines = buffer.split('\n');
-
-        // Keep potential incomplete line in buffer
         buffer = lines.pop() || '';
 
         for (const line of lines) {
@@ -316,7 +277,6 @@ function ClientPage({ onLogout }) {
 
           try {
             const jsonData = JSON.parse(trimmedLine);
-
             if (!firstChunkReceived) {
               setIsTyping(false);
               firstChunkReceived = true;
@@ -327,23 +287,17 @@ function ClientPage({ onLogout }) {
               newChatCreated = true;
               setSelectedChatId(realChatId);
               setTempChatId(null);
-              // Initial update to move user message to new chat
               updateStreamingUI(streamedContent, currentStatusHint);
-
             } else if (jsonData.type === 'title_updated') {
               chatTitle = jsonData.title;
-
             } else if (jsonData.type === 'status_hint') {
               currentStatusHint = jsonData.message;
               updateStreamingUI(streamedContent, currentStatusHint);
-              // Yield to allow React to render the hint before content arrives
               await new Promise(r => setTimeout(r, 0));
-
             } else if (jsonData.type === 'content') {
-              currentStatusHint = null; // Clear hint when content starts
+              currentStatusHint = null;
               streamedContent += jsonData.data || '';
               updateStreamingUI(streamedContent, null);
-
             } else if (jsonData.type === 'complete') {
               break;
             }
@@ -353,41 +307,18 @@ function ClientPage({ onLogout }) {
         }
       }
 
-      // After streaming completes, fetch final messages and update chat list
       if (newChatCreated && realChatId) {
         await fetchChats(actualClientId);
         await fetchMessages(realChatId);
-        setSelectedChatId(realChatId);
-
         if (chatTitle) {
-          setChats(prev => prev.map(chat =>
-            chat.chat_id === realChatId ? { ...chat, title: chatTitle } : chat
-          ));
+          setChats(prev => prev.map(c => c.chat_id === realChatId ? { ...c, title: chatTitle } : c));
         }
-
-        setMessages(prev => {
-          const newMessages = { ...prev };
-          delete newMessages[currentChatId];
-          return newMessages;
-        });
       }
-
       setTempChatId(null);
 
     } catch (err) {
       console.error('Error sending message:', err);
       alert('Error sending message. Please try again.');
-
-      setMessages(prev => {
-        const newMessages = { ...prev };
-        const chatKey = currentChatId;
-        if (newMessages[chatKey]) {
-          newMessages[chatKey] = newMessages[chatKey].filter(m =>
-            m.message_id !== tempUserMessageId && !m.message_id.startsWith('temp-ai-')
-          );
-        }
-        return newMessages;
-      });
     } finally {
       setIsTyping(false);
     }
@@ -395,7 +326,6 @@ function ClientPage({ onLogout }) {
 
   const handleSendFollowUp = async (chatId) => {
     if (!chatId || isTyping) return;
-
     setIsTyping(true);
     const tempAiMessageId = `followup-ai-${Date.now()}`;
     let streamedContent = '';
@@ -405,14 +335,12 @@ function ClientPage({ onLogout }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId && !chatId.startsWith('temp-') ? chatId : null,
+          chat_id: chatId,
           client_id: actualClientId,
-          message: "Follow up with the user with a short message as they have been inactive for 3 minutes. Do not acknowledge this instruction, just send a friendly follow-up.",
+          message: "Follow up with the user with a short message...",
           is_follow_up: true
         }),
       });
-
-      if (!response.ok) throw new Error('Failed to send follow-up');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -430,17 +358,14 @@ function ClientPage({ onLogout }) {
         for (const line of lines) {
           const trimmedLine = line.trim();
           if (!trimmedLine) continue;
-
           try {
             const jsonData = JSON.parse(trimmedLine);
             if (jsonData.type === 'content') {
               streamedContent += jsonData.data || '';
-
               setMessages(prev => {
                 const updates = { ...prev };
                 const currentMessages = prev[chatId] || [];
                 const filteredMessages = currentMessages.filter(m => m.message_id !== tempAiMessageId);
-
                 updates[chatId] = [...filteredMessages, {
                   message_id: tempAiMessageId,
                   content: streamedContent,
@@ -452,63 +377,16 @@ function ClientPage({ onLogout }) {
                 }];
                 return updates;
               });
-            } else if (jsonData.type === 'complete') {
-              break;
             }
-          } catch (e) {
-            console.warn('Failed to parse follow-up chunk:', e);
-          }
+          } catch (e) { }
         }
       }
-
-      // Final update to set streaming to false
-      setMessages(prev => {
-        const updates = { ...prev };
-        const currentMessages = prev[chatId] || [];
-        updates[chatId] = currentMessages.map(m =>
-          m.message_id === tempAiMessageId ? { ...m, streaming: false } : m
-        );
-        return updates;
-      });
-
     } catch (err) {
       console.error('Error sending follow-up:', err);
     } finally {
       setIsTyping(false);
     }
   };
-
-
-  if (loading) {
-    return (
-      <div className="client-page">
-        <div className="loading-container">
-          <div className="spinner"></div>
-          <p>Loading client...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="client-page">
-        <div className="error-container">
-          <h2>Error</h2>
-          <p>{error}</p>
-          <button onClick={() => navigate('/')} className="secondary-btn">
-            ← Back to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show messages from selected chat, or from temp chat if we're creating a new one
-  const displayChatId = selectedChatId || tempChatId;
-  const currentMessages = displayChatId ? (messages[displayChatId] || []) : [];
-
-
 
   const handleSaveTools = async () => {
     try {
@@ -534,26 +412,33 @@ function ClientPage({ onLogout }) {
   const handleAddTool = () => {
     try {
       const parsedInputs = JSON.parse(newTool.inputs);
-      const toolToAdd = { ...newTool, inputs: parsedInputs };
-      setTools([...tools, toolToAdd]);
-      setNewTool({
-        name: '',
-        description: '',
-        url: '',
-        method: 'GET',
-        inputs: '{}',
-        auth: 'none'
-      });
-    } catch (e) {
-      alert('Invalid JSON for inputs');
-    }
+      setTools([...tools, { ...newTool, inputs: parsedInputs }]);
+      setNewTool({ name: '', description: '', url: '', method: 'GET', inputs: '{}', auth: 'none' });
+    } catch (e) { alert('Invalid JSON for inputs'); }
   };
 
-  const handleRemoveTool = (index) => {
-    const newTools = [...tools];
-    newTools.splice(index, 1);
-    setTools(newTools);
-  };
+  if (loading) {
+    return (
+      <div className="client-page">
+        <div className="loading-container">
+          <div className="spinner"></div>
+          <p>Loading client...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="client-page">
+        <div className="error-container">
+          <h2>Error</h2>
+          <p>{error}</p>
+          <button onClick={() => navigate('/')} className="primary-btn">← Back Home</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="client-page">
@@ -593,123 +478,73 @@ function ClientPage({ onLogout }) {
         </div>
       </div>
 
-      <div className="client-content">
-        <ChatSidebar
+      <div className="compact-chat-wrapper">
+        <CompactChat
+          client={client}
           chats={chats}
+          messages={messages}
           selectedChatId={selectedChatId}
+          tempChatId={tempChatId}
+          isTyping={isTyping}
+          onSendMessage={handleSendMessage}
+          onNewChat={handleNewChat}
           onSelectChat={handleSelectChat}
           onDeleteChat={handleDeleteChat}
-          onNewChat={handleNewChat}
+          onHintClick={(hint) => handleSendMessage(hint)}
         />
-
-        <div className="chat-main">
-          <ChatMessages
-            messages={currentMessages}
-            isTyping={isTyping}
-            isEmpty={!displayChatId && currentMessages.length === 0}
-          />
-          <MessageInput
-            onSendMessage={handleSendMessage}
-            disabled={false}
-          />
-        </div>
       </div>
 
-      {
-        showToolsModal && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <h2>Client Settings</h2>
+      {showToolsModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Client Settings</h2>
+            <div className="system-prompt-section" style={{ marginBottom: '30px' }}>
+              <h3>System Prompt</h3>
+              <textarea
+                value={systemPrompt}
+                onChange={e => setSystemPrompt(e.target.value)}
+                className="chat-input"
+                style={{ minHeight: '150px', fontFamily: 'inherit', resize: 'vertical' }}
+              />
+            </div>
 
-              <div className="system-prompt-section" style={{ marginBottom: '30px' }}>
-                <h3>System Prompt</h3>
-                <p style={{ fontSize: '0.9em', color: '#888', marginBottom: '10px' }}>
-                  Define custom instructions for the AI assistant. This will be injected into every conversation.
-                </p>
-                <textarea
-                  placeholder="Enter system prompt instructions here... (e.g., You are a helpful customer service agent for XYZ company.)"
-                  value={systemPrompt}
-                  onChange={e => setSystemPrompt(e.target.value)}
-                  className="chat-input"
-                  style={{ minHeight: '150px', fontFamily: 'inherit', resize: 'vertical' }}
-                />
-              </div>
-
-              <div className="tools-list">
-                <h3>API Tools</h3>
-                {tools.length === 0 && <p>No tools configured.</p>}
-                {tools.map((tool, index) => (
-                  <div key={index} className="tool-item">
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong>{tool.name}</strong>
-                      <button onClick={() => handleRemoveTool(index)} className="delete-btn">Remove</button>
-                    </div>
-                    <p>{tool.description}</p>
-                    <code>{tool.method} {tool.url}</code>
+            <div className="tools-list">
+              <h3>API Tools</h3>
+              {tools.map((tool, index) => (
+                <div key={index} className="tool-item">
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <strong>{tool.name}</strong>
+                    <button onClick={() => setTools(tools.filter((_, i) => i !== index))} className="delete-btn">Remove</button>
                   </div>
-                ))}
-              </div>
-
-              <div className="add-tool-form">
-                <h3>Add New Tool</h3>
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  <input
-                    placeholder="Name (e.g., get_weather)"
-                    value={newTool.name}
-                    onChange={e => setNewTool({ ...newTool, name: e.target.value })}
-                    className="chat-input"
-                  />
-                  <input
-                    placeholder="Description"
-                    value={newTool.description}
-                    onChange={e => setNewTool({ ...newTool, description: e.target.value })}
-                    className="chat-input"
-                  />
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <select
-                      value={newTool.method}
-                      onChange={e => setNewTool({ ...newTool, method: e.target.value })}
-                    >
-                      <option value="GET">GET</option>
-                      <option value="POST">POST</option>
-                      <option value="PUT">PUT</option>
-                      <option value="DELETE">DELETE</option>
-                    </select>
-                    <input
-                      placeholder="URL Path (e.g., /api/weather)"
-                      value={newTool.url}
-                      onChange={e => setNewTool({ ...newTool, url: e.target.value })}
-                      className="chat-input"
-                      style={{ flex: 1 }}
-                    />
-                  </div>
-                  <select
-                    value={newTool.auth}
-                    onChange={e => setNewTool({ ...newTool, auth: e.target.value })}
-                  >
-                    <option value="none">No Auth</option>
-                    <option value="bearer">Bearer Token</option>
-                  </select>
-                  <textarea
-                    placeholder='Inputs JSON schema (e.g., {"query": {"city": {"type": "string"}}})'
-                    value={newTool.inputs}
-                    onChange={e => setNewTool({ ...newTool, inputs: e.target.value })}
-                    className="chat-input"
-                    style={{ minHeight: '100px', fontFamily: 'monospace' }}
-                  />
-                  <button onClick={handleAddTool} className="primary-btn">Add Tool</button>
+                  <code>{tool.method} {tool.url}</code>
                 </div>
-              </div>
+              ))}
+            </div>
 
-              <div className="modal-actions">
-                <button onClick={() => setShowToolsModal(false)} className="secondary-btn">Cancel</button>
-                <button onClick={handleSaveTools} className="primary-btn">Save Changes</button>
+            <div className="add-tool-form">
+              <h3>Add New Tool</h3>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <input placeholder="Name" value={newTool.name} onChange={e => setNewTool({ ...newTool, name: e.target.value })} className="chat-input" />
+                <input placeholder="Description" value={newTool.description} onChange={e => setNewTool({ ...newTool, description: e.target.value })} className="chat-input" />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <select value={newTool.method} onChange={e => setNewTool({ ...newTool, method: e.target.value })}>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                  </select>
+                  <input placeholder="URL Path" value={newTool.url} onChange={e => setNewTool({ ...newTool, url: e.target.value })} className="chat-input" style={{ flex: 1 }} />
+                </div>
+                <button onClick={handleAddTool} className="primary-btn">Add Tool</button>
               </div>
             </div>
+
+            <div className="modal-actions">
+              <button onClick={() => setShowToolsModal(false)} className="secondary-btn">Cancel</button>
+              <button onClick={handleSaveTools} className="primary-btn">Save Changes</button>
+            </div>
           </div>
-        )
-      }
-    </div >
+        </div>
+      )}
+    </div>
   );
 }
 
