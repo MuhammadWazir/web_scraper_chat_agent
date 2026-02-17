@@ -412,9 +412,19 @@ function ClientPage({ onLogout }) {
   const handleAddTool = () => {
     try {
       const parsedInputs = JSON.parse(newTool.inputs);
-      setTools([...tools, { ...newTool, inputs: parsedInputs }]);
-      setNewTool({ name: '', description: '', url: '', method: 'GET', inputs: '{}', auth: 'none' });
-    } catch (e) { alert('Invalid JSON for inputs'); }
+      const toolToAdd = { ...newTool, inputs: parsedInputs };
+      setTools([...tools, toolToAdd]);
+      setNewTool({
+        name: '',
+        description: '',
+        url: '',
+        method: 'GET',
+        inputs: '{}',
+        auth: 'none'
+      });
+    } catch (e) {
+      alert('Invalid JSON for inputs');
+    }
   };
 
   if (loading) {
@@ -524,15 +534,50 @@ function ClientPage({ onLogout }) {
             <div className="add-tool-form">
               <h3>Add New Tool</h3>
               <div style={{ display: 'grid', gap: '10px' }}>
-                <input placeholder="Name" value={newTool.name} onChange={e => setNewTool({ ...newTool, name: e.target.value })} className="chat-input" />
-                <input placeholder="Description" value={newTool.description} onChange={e => setNewTool({ ...newTool, description: e.target.value })} className="chat-input" />
+                <input
+                  placeholder="Name (e.g., get_weather)"
+                  value={newTool.name}
+                  onChange={e => setNewTool({ ...newTool, name: e.target.value })}
+                  className="chat-input"
+                />
+                <input
+                  placeholder="Description"
+                  value={newTool.description}
+                  onChange={e => setNewTool({ ...newTool, description: e.target.value })}
+                  className="chat-input"
+                />
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <select value={newTool.method} onChange={e => setNewTool({ ...newTool, method: e.target.value })}>
+                  <select
+                    value={newTool.method}
+                    onChange={e => setNewTool({ ...newTool, method: e.target.value })}
+                  >
                     <option value="GET">GET</option>
                     <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
                   </select>
-                  <input placeholder="URL Path" value={newTool.url} onChange={e => setNewTool({ ...newTool, url: e.target.value })} className="chat-input" style={{ flex: 1 }} />
+                  <input
+                    placeholder="URL Path (e.g., /api/weather)"
+                    value={newTool.url}
+                    onChange={e => setNewTool({ ...newTool, url: e.target.value })}
+                    className="chat-input"
+                    style={{ flex: 1 }}
+                  />
                 </div>
+                <select
+                  value={newTool.auth}
+                  onChange={e => setNewTool({ ...newTool, auth: e.target.value })}
+                >
+                  <option value="none">No Auth</option>
+                  <option value="bearer">Bearer Token</option>
+                </select>
+                <textarea
+                  placeholder='Inputs JSON schema (e.g., {"query": {"city": {"type": "string"}}})'
+                  value={newTool.inputs}
+                  onChange={e => setNewTool({ ...newTool, inputs: e.target.value })}
+                  className="chat-input"
+                  style={{ minHeight: '100px', fontFamily: 'monospace' }}
+                />
                 <button onClick={handleAddTool} className="primary-btn">Add Tool</button>
               </div>
             </div>
