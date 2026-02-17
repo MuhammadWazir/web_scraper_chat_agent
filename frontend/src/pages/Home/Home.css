@@ -10,6 +10,11 @@
   align-items: center;
   margin-bottom: 3rem;
   color: white;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2rem;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .home-header>div {
@@ -65,8 +70,8 @@
 
 .home-content {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 2rem;
+  grid-template-columns: 350px 1fr;
+  gap: 2.5rem;
   align-items: start;
 }
 

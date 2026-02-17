@@ -366,10 +366,49 @@
         }
     }
 
-    /* Mobile */
-    @media (max-width: 768px) {
-        .mobile-chat-view .chat-list {
+    /* Mobile & Tablet Responsiveness */
+    @media screen and (max-width: 480px) {
+        .chat-widget-wrapper {
+            bottom: 16px;
+            right: 16px;
+        }
+
+        .chat-widget {
+            width: calc(100vw - 32px);
+            height: calc(100vh - 100px);
+            max-width: 420px;
+            margin-bottom: 12px;
+        }
+
+        .chat-list {
             display: none;
+            /* Hide sidebar by default on tiny screens */
+        }
+
+        .chat-container {
+            flex-direction: column;
+        }
+
+        .chat-widget.show-sidebar .chat-list {
+            display: flex;
+            width: 100%;
+            height: 150px;
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+        }
+    }
+
+    @media screen and (max-width: 768px) {
+        .chat-widget {
+            height: min(600px, 70vh);
+        }
+    }
+
+    @media screen and (min-width: 769px) {
+        .chat-widget {
+            /* Standard desktop size */
+            width: 420px;
+            height: 600px;
         }
     }
 
