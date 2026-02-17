@@ -94,10 +94,14 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
             const loadedChats = await apiService.loadChats(sessionToken);
             setChats(loadedChats);
 
-            // Auto-select first chat if none active
-            if (!activeChatId && loadedChats.length > 0) {
-                selectChat(loadedChats[0].chat_id);
+            if (loadedChats.length > 0) {
+                if (!activeChatId) {
+                    selectChat(loadedChats[0].chat_id);
+                }
+            } else {
+                await createChat();
             }
+
         } catch (error) {
             console.error('Failed to load chats:', error);
         }

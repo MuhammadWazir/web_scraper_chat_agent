@@ -238,11 +238,13 @@ function ClientPage({ onLogout }) {
       let firstChunkReceived = false;
 
       const updateStreamingUI = (content, hint) => {
-        const chatKey = newChatCreated ? realChatId : currentChatId;
+        const chatKey = realChatId || currentChatId;
+
         setMessages(prev => {
-          const updates = { ...prev };
-          const currentMessages = prev[chatKey] || prev[currentChatId] || [];
-          const filteredMessages = currentMessages.filter(m => m.message_id !== tempAiMessageId);
+          const currentMessages = prev[chatKey] || [];
+          const filteredMessages = currentMessages.filter(
+            m => m.message_id !== tempAiMessageId
+          );
 
           const aiMessage = {
             message_id: tempAiMessageId,
@@ -254,13 +256,13 @@ function ClientPage({ onLogout }) {
             created_at: new Date().toISOString()
           };
 
-          updates[chatKey] = [...filteredMessages, aiMessage];
-          if (newChatCreated && chatKey !== currentChatId) {
-            updates[currentChatId] = [...filteredMessages, aiMessage];
-          }
-          return updates;
+          return {
+            ...prev,
+            [chatKey]: [...filteredMessages, aiMessage]
+          };
         });
       };
+
 
       while (true) {
         const { done, value } = await reader.read();
