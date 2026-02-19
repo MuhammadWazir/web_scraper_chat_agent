@@ -14,6 +14,7 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
     const [isMobile, setIsMobile] = useState(false);
     const [isOpen, setIsOpen] = useState(true); // Auto-open by default
     const [showChat, setShowChat] = useState(true); // Show chat area by default
+    const [mobileChatListOpen, setMobileChatListOpen] = useState(false); // Mobile chat list toggle
 
     const apiService = new ApiService(baseUrl, authToken);
     const storageService = new StorageService(sessionToken);
@@ -432,13 +433,22 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
                     )}
 
                     <div className={`chat-container ${(isMobile && showChat) ? 'mobile-chat-view' : ''}`}>
-                        {(!isMobile || !showChat) && (
+                        {isMobile && (
+                            <button 
+                                className="mobile-chat-list-toggle"
+                                onClick={() => setMobileChatListOpen(!mobileChatListOpen)}
+                            >
+                                {mobileChatListOpen ? '▼ Hide Chats' : '▲ Show Chats'}
+                            </button>
+                        )}
+                        {(!isMobile || !showChat || mobileChatListOpen) && (
                             <ChatList
                                 chats={chats}
                                 activeChatId={activeChatId}
                                 onSelectChat={selectChat}
                                 onDeleteChat={deleteChat}
                                 onNewChat={createChat}
+                                className={mobileChatListOpen ? 'mobile-visible' : ''}
                             />
                         )}
 

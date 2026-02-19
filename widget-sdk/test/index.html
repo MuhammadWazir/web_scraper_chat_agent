@@ -174,8 +174,8 @@
 
                 if (typeof initHelper === 'function') {
                     const widget = initHelper({
-                        baseUrl: '/cal-api',
-                        authToken: null
+                        baseUrl: '/api',
+                        authToken: 'Bearer cal_live_c53560a5c6282c1f2dea5102baf08fbd'
                     });
 
                     await widget.init(sessionToken);
@@ -191,8 +191,8 @@
                     }
 
                     const widget = new WidgetClass({
-                        baseUrl: '/cal-api',
-                        authToken: null
+                        baseUrl: '/api',
+                        authToken: 'Bearer cal_live_c53560a5c6282c1f2dea5102baf08fbd'
                     });
 
                     await widget.init(sessionToken);

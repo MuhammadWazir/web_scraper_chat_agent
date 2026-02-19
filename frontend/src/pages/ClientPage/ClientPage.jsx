@@ -20,6 +20,7 @@ function ClientPage({ onLogout }) {
 
   // Settings Modal State
   const [showToolsModal, setShowToolsModal] = useState(false);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [tools, setTools] = useState([]);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [newTool, setNewTool] = useState({
@@ -483,39 +484,48 @@ function ClientPage({ onLogout }) {
 
   return (
     <div className="client-page">
-      <div className="client-header">
-        <div>
-          <h1>{client?.company_name || 'Client'}</h1>
-          <p className="client-url">{client?.website_url}</p>
-        </div>
-        <div className="header-actions">
-          {isAdmin && (
-            <>
-              <button
-                className="primary-btn"
-                onClick={() => setShowToolsModal(true)}
-              >
-                Settings
-              </button>
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="secondary-btn"
-              >
-                ← Back
-              </button>
-              <button
-                onClick={() => {
-                  if (window.confirm('Are you sure you want to logout?')) {
-                    if (onLogout) onLogout();
-                    navigate('/login');
-                  }
-                }}
-                className="logout-btn"
-              >
-                Logout
-              </button>
-            </>
-          )}
+      <div className={`client-header ${headerCollapsed ? 'collapsed' : ''}`}>
+        <button 
+          className="header-collapse-btn" 
+          onClick={() => setHeaderCollapsed(!headerCollapsed)}
+          aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
+        >
+          {headerCollapsed ? '▼' : '▲'}
+        </button>
+        <div className="header-content">
+          <div>
+            <h1>{client?.company_name || 'Client'}</h1>
+            <p className="client-url">{client?.website_url}</p>
+          </div>
+          <div className="header-actions">
+            {isAdmin && (
+              <>
+                <button
+                  className="primary-btn"
+                  onClick={() => setShowToolsModal(true)}
+                >
+                  Settings
+                </button>
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="secondary-btn"
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to logout?')) {
+                      if (onLogout) onLogout();
+                      navigate('/login');
+                    }
+                  }}
+                  className="logout-btn"
+                >
+                  Logout
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

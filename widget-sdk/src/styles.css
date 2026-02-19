@@ -388,101 +388,182 @@
         }
     }
 
-    /* Mobile & Tablet Responsiveness */
+    /* ========================================
+       MOBILE FIRST - 480px and below
+       ======================================== */
     @media screen and (max-width: 480px) {
+        /* Wrapper takes full screen */
         .chat-widget-wrapper {
+            position: fixed;
             bottom: 0;
             right: 0;
             left: 0;
             top: 0;
+            z-index: 99999;
+            display: block;
+        }
+
+        /* Full screen widget */
+        .chat-widget {
+            width: 100vw;
+            height: 100vh;
+            max-width: 100vw;
+            max-height: 100vh;
+            border-radius: 0;
+            margin: 0;
+            position: relative;
+            bottom: auto;
+            right: auto;
+        }
+
+        /* Header */
+        .chat-header {
+            padding: 12px 16px;
+            flex-shrink: 0;
+        }
+
+        .header-info .title {
+            font-size: 16px;
+        }
+
+        /* Mobile toggle button for chat list */
+        .mobile-chat-list-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 10px 16px;
+            background: #f8fafc;
+            border: none;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #64748b;
+            flex-shrink: 0;
+        }
+
+        /* Chat list - hidden by default on mobile */
+        .chat-list {
+            display: none;
+            width: 100%;
+            min-height: 80px;
+            max-height: 35vh;
+            border-right: none;
+            border-bottom: 1px solid #e2e8f0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            flex-shrink: 0;
+        }
+
+        .chat-list.mobile-visible {
+            display: block;
+        }
+
+        /* Chat area */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* Messages */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            padding: 12px;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 10px 14px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Input area */
+        .chat-input-area {
+            padding: 10px 12px;
+            gap: 8px;
+            flex-shrink: 0;
+            background: #fff;
+        }
+
+        .chat-input {
+            padding: 10px 12px;
+            font-size: 14px;
+            min-height: 40px;
+        }
+
+        .send-btn {
+            padding: 0 14px;
+            height: 40px;
+            flex-shrink: 0;
+        }
+    }
+
+    /* ========================================
+       TABLET - 481px to 768px
+       ======================================== */
+    @media screen and (min-width: 481px) and (max-width: 768px) {
+        .chat-widget-wrapper {
+            bottom: 16px;
+            right: 16px;
+            left: auto;
+            top: auto;
             display: flex;
             align-items: flex-end;
         }
 
         .chat-widget {
-            width: 100%;
-            height: 100%;
-            max-width: 100%;
-            margin-bottom: 0;
-            border-radius: 0;
-        }
-
-        .chat-launcher {
-            bottom: 16px;
-            right: 16px;
-            width: 56px;
-            height: 56px;
-        }
-
-        .chat-list {
-            display: none;
-            /* Hide sidebar by default on tiny screens */
+            width: 90vw;
+            max-width: 420px;
+            height: 70vh;
+            max-height: 600px;
+            border-radius: 16px;
         }
 
         .chat-container {
-            flex-direction: column;
+            flex-direction: row;
         }
 
-        .chat-widget.show-sidebar .chat-list {
-            display: flex;
-            width: 100%;
-            height: 150px;
-            border-right: none;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .messages {
-            padding: 12px;
-            gap: 12px;
-        }
-
-        .message {
-            max-width: 90%;
-            padding: 12px 14px;
-            font-size: 14px;
-        }
-
-        .chat-input-area {
-            padding: 10px;
-            gap: 8px;
-        }
-
-        .chat-input {
-            padding: 8px 10px;
-            font-size: 14px;
-        }
-
-        .send-btn {
-            padding: 0 14px;
+        .chat-list {
+            width: 120px;
+            min-width: 120px;
         }
     }
 
-    @media screen and (min-width: 481px) and (max-width: 768px) {
-        .chat-widget-wrapper {
-            bottom: 16px;
-            right: 16px;
-        }
-
+    /* ========================================
+       SMALL DESKTOP - 769px to 1024px
+       ======================================== */
+    @media screen and (min-width: 769px) and (max-width: 1024px) {
         .chat-widget {
-            width: calc(100vw - 32px);
-            height: min(600px, 70vh);
-            max-width: 420px;
-            margin-bottom: 12px;
+            width: 400px;
+            height: 580px;
         }
     }
 
-    @media screen and (min-width: 769px) {
+    /* ========================================
+       LARGE DESKTOP - 1025px and above
+       ======================================== */
+    @media screen and (min-width: 1025px) {
         .chat-widget {
-            /* Standard desktop size */
             width: 420px;
             height: 600px;
         }
     }
 
-    /* Small height screens */
+    /* ========================================
+       SMALL HEIGHT SCREENS
+       ======================================== */
     @media screen and (max-height: 500px) {
         .chat-widget {
-            height: calc(100vh - 40px);
+            height: calc(100vh - 20px);
         }
 
         .messages {

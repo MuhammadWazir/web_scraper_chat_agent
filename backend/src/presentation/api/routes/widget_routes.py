@@ -19,6 +19,15 @@ router = APIRouter(prefix="/widget", tags=["widget"])
 container = Container()
 
 
+def get_client_ip(request: Request) -> str:
+    """Get the real client IP from X-Forwarded-For header or fallback to client.host."""
+    x_forwarded_for = request.headers.get("X-Forwarded-For")
+    if x_forwarded_for:
+        # Take the first IP (original client)
+        return x_forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "127.0.0.1"
+
+
 @router.post("/generate-url")
 async def generate_widget_url(
     x_api_key: str = Header(...),
@@ -43,7 +52,7 @@ async def initialize_widget_session(
     use_case: InitializeWidgetSessionUseCase = Depends(lambda: container.initialize_widget_session_use_case())
 ) -> Dict[str, Any]:
     try:
-        end_user_ip = http_request.client.host
+        end_user_ip = get_client_ip(http_request)
         result = use_case.execute(session_token, end_user_ip)
         return result
     except ValueError as e:
@@ -59,7 +68,7 @@ async def get_widget_chats(
     use_case: GetWidgetChatsUseCase = Depends(lambda: container.get_widget_chats_use_case())
 ):
     try:
-        end_user_ip = http_request.client.host
+        end_user_ip = get_client_ip(http_request)
         chats = use_case.execute(session_token, end_user_ip)
         
         return [
@@ -84,7 +93,7 @@ async def create_widget_chat(
     use_case: CreateWidgetChatUseCase = Depends(lambda: container.create_widget_chat_use_case())
 ):
     try:
-        end_user_ip = http_request.client.host
+        end_user_ip = get_client_ip(http_request)
         chat = use_case.execute(session_token, end_user_ip)
         
         return ChatResponse(
@@ -107,7 +116,7 @@ async def delete_widget_chat(
     use_case: DeleteWidgetChatUseCase = Depends(lambda: container.delete_widget_chat_use_case())
 ):
     try:
-        end_user_ip = http_request.client.host
+        end_user_ip = get_client_ip(http_request)
         success = use_case.execute(session_token, chat_id, end_user_ip)
         
         if not success:
@@ -129,7 +138,7 @@ async def send_widget_message_stream(
     use_case: SendWidgetMessageUseCase = Depends(lambda: container.send_widget_message_use_case())
 ):
     try:
-        end_user_ip = http_request.client.host
+        end_user_ip = get_client_ip(http_request)
         auth_token = request.authorization
         
         async def event_generator():
@@ -164,7 +173,7 @@ async def get_widget_chat_messages(
     use_case: GetWidgetMessagesUseCase = Depends(lambda: container.get_widget_messages_use_case())
 ):
     try:
-        end_user_ip = http_request.client.host
+        end_user_ip = get_client_ip(http_request)
         messages = use_case.execute(session_token, chat_id, end_user_ip)
         return messages
     except ValueError as e:

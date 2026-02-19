@@ -1,8 +1,8 @@
 import React from 'react';
 
-export function ChatList({ chats, activeChatId, onSelectChat, onDeleteChat, onNewChat }) {
+export function ChatList({ chats, activeChatId, onSelectChat, onDeleteChat, onNewChat, className = '' }) {
     return (
-        <div className="chat-list">
+        <div className={`chat-list ${className}`}>
             <div className="chat-list-header">
                 <h3>Chats</h3>
                 <button className="new-chat-btn" onClick={onNewChat}>

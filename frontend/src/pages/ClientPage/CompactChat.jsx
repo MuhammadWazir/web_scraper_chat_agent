@@ -21,6 +21,7 @@ function CompactChat({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [inputValue, setInputValue] = useState('');
+    const [mobileChatListOpen, setMobileChatListOpen] = useState(false);
     const messagesEndRef = useRef(null);
     const displayChatId = selectedChatId || tempChatId;
     const currentMessages = displayChatId ? (messages[displayChatId] || []) : [];
@@ -45,7 +46,7 @@ function CompactChat({
     };
 
     return (
-        <div className="compact-chat-wrapper-internal">
+        <div className={`compact-chat-wrapper-internal ${isOpen ? 'open' : ''}`}>
             {/* Launcher Button */}
             {!isOpen && (
                 <button className="compact-chat-launcher" onClick={() => setIsOpen(true)}>
@@ -67,8 +68,19 @@ function CompactChat({
                     </div>
 
                     <div className="compact-chat-container">
+                        {/* Mobile Chat List Toggle */}
+                        <button 
+                            className="chat-list-toggle-btn"
+                            onClick={() => setMobileChatListOpen(!mobileChatListOpen)}
+                        >
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path fill="currentColor" d="M3,4H7V8H3V4M9,5V7H21V5H9M3,10H7V14H3V10M9,11V13H21V11H9M3,16H7V20H3V16M9,17V19H21V17H9" />
+                            </svg>
+                            {mobileChatListOpen ? 'Hide Chats' : 'Show Previous Chats'}
+                        </button>
+
                         {/* Sidebar */}
-                        <div className="compact-chat-list">
+                        <div className={`compact-chat-list ${mobileChatListOpen ? 'mobile-visible' : ''}`}>
                             <div className="compact-chat-list-header">
                                 <h3>Chats</h3>
                                 <button className="compact-new-chat-btn" onClick={onNewChat}>

@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Header, Request, Response
 from pydantic import BaseModel
 import httpx
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -72,9 +73,24 @@ async def proxy_to_backend(path: str, request: Request):
     # Get the request body
     body = await request.body()
     
+    # For POST/PUT requests with JSON body, add the authorization to the body
+    if body and request.method in ["POST", "PUT"]:
+        try:
+            body_str = body.decode("utf-8")
+            body_json = json.loads(body_str)
+            body_json["authorization"] = CAL_AUTH_TOKEN
+            body = json.dumps(body_json).encode("utf-8")
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # If body is not JSON, keep as is
+            pass
+    
     # Prepare headers - add Cal's auth token
     headers = dict(request.headers)
-    body["authorization"] = CAL_AUTH_TOKEN
+    headers["Authorization"] = CAL_AUTH_TOKEN
+    
+    # Remove Content-Length if we modified the body (to let httpx recalculate)
+    if request.method in ["POST", "PUT"]:
+        headers.pop("content-length", None)
     
     # Ensure X-Forwarded-For is preserved (for IP-based session validation)
     # Get the original client IP from X-Forwarded-For or fallback to client host
