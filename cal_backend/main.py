@@ -74,7 +74,7 @@ async def proxy_to_backend(path: str, request: Request):
     
     # Prepare headers - add Cal's auth token
     headers = dict(request.headers)
-    headers["Authorization"] = CAL_AUTH_TOKEN  # Add Cal's auth token
+    body["authorization"] = CAL_AUTH_TOKEN
     
     # Ensure X-Forwarded-For is preserved (for IP-based session validation)
     # Get the original client IP from X-Forwarded-For or fallback to client host
