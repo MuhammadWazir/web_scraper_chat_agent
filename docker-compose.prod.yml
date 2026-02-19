@@ -66,8 +66,8 @@ services:
     restart: always
     environment:
       - MAIN_BACKEND_URL=http://backend:8000
-    env_file:
-      - ./cal_backend/.env
+      - CAL_AUTH_TOKEN=${CAL_AUTH_TOKEN}
+      - CAL_CLIENT_API_KEY=${CAL_CLIENT_API_KEY}
     ports:
       - "8001:8001"
 
