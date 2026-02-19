@@ -66,6 +66,8 @@
     overflow: hidden;
     margin-bottom: 16px;
     border: 1px solid var(--cw-border);
+    /* Ensure children can shrink and scroll */
+    min-height: 0;
 }
 
 /* ─── Header ─── */
@@ -120,6 +122,8 @@
     flex: 1;
     overflow: hidden;
     min-height: 0;
+    /* Critical: prevents container from growing beyond widget bounds */
+    max-height: 100%;
 }
 
 /* ─── Sidebar / Chat List ─── */
@@ -231,6 +235,9 @@
     flex-direction: column;
     background: #fff;
     min-width: 0;
+    /* Critical: allows flex children (messages) to shrink so input stays visible */
+    min-height: 0;
+    overflow: hidden;
 }
 
 .cw-back-btn {
@@ -253,6 +260,10 @@
     flex-direction: column;
     gap: 16px;
     background: #fafafa;
+    /* Critical: allows this area to shrink so input is always visible */
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
 }
 
 .cw-no-messages {
@@ -571,11 +582,21 @@
 
     .cw-widget {
         width: 100vw;
+        /* Use dvh (dynamic viewport height) to account for mobile browser chrome.
+           Falls back to 100vh if dvh is unsupported. */
+        height: 100dvh;
         height: 100vh;
+        /* fallback for older browsers */
         max-width: 100vw;
+        max-height: 100dvh;
         max-height: 100vh;
+        /* fallback */
         border-radius: 0;
         margin: 0;
+        /* Must be flex column so children fill and scroll correctly */
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
 
     .cw-launcher {
@@ -636,6 +657,8 @@
         flex-direction: column;
         min-height: 0;
         overflow: hidden;
+        /* Ensure the chat area never grows beyond the available space */
+        max-height: 100%;
     }
 
     .cw-messages {
@@ -645,6 +668,13 @@
         overscroll-behavior: contain;
         padding: 12px;
         gap: 10px;
+        /* Critical: allows scroll instead of overflow */
+        min-height: 0;
+    }
+
+    .cw-input-area {
+        /* Prevent the input area from being squished or disappearing */
+        flex-shrink: 0 !important;
     }
 
     .cw-message {
