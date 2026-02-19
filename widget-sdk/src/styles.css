@@ -297,34 +297,56 @@
 
     /* Input Area */
     .chat-input-area {
-        padding: 15px;
+        padding: 12px;
         border-top: 1px solid var(--border-color);
         display: flex;
         gap: 10px;
+        align-items: flex-end;
     }
 
     .chat-input {
         flex: 1;
-        padding: 10px;
+        padding: 10px 12px;
         border: 1px solid var(--border-color);
         border-radius: var(--radius-sm);
         outline: none;
         resize: none;
         font-family: inherit;
+        font-size: 14px;
+        min-height: 42px;
+        max-height: 120px;
+        line-height: 1.4;
+    }
+
+    .chat-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
     }
 
     .send-btn {
-        padding: 0 20px;
+        padding: 0 16px;
+        height: 42px;
         background: var(--primary-color);
         color: white;
         border: none;
         border-radius: var(--radius-sm);
         cursor: pointer;
         font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
     }
 
     .send-btn:hover {
         background: var(--primary-hover);
+        transform: translateY(-1px);
+    }
+
+    .send-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
     }
 
     /* Typing Indicator */
@@ -369,15 +391,27 @@
     /* Mobile & Tablet Responsiveness */
     @media screen and (max-width: 480px) {
         .chat-widget-wrapper {
-            bottom: 16px;
-            right: 16px;
+            bottom: 0;
+            right: 0;
+            left: 0;
+            top: 0;
+            display: flex;
+            align-items: flex-end;
         }
 
         .chat-widget {
-            width: calc(100vw - 32px);
-            height: calc(100vh - 100px);
-            max-width: 420px;
-            margin-bottom: 12px;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            margin-bottom: 0;
+            border-radius: 0;
+        }
+
+        .chat-launcher {
+            bottom: 16px;
+            right: 16px;
+            width: 56px;
+            height: 56px;
         }
 
         .chat-list {
@@ -396,11 +430,44 @@
             border-right: none;
             border-bottom: 1px solid var(--border-color);
         }
+
+        .messages {
+            padding: 12px;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 90%;
+            padding: 12px 14px;
+            font-size: 14px;
+        }
+
+        .chat-input-area {
+            padding: 10px;
+            gap: 8px;
+        }
+
+        .chat-input {
+            padding: 8px 10px;
+            font-size: 14px;
+        }
+
+        .send-btn {
+            padding: 0 14px;
+        }
     }
 
-    @media screen and (max-width: 768px) {
+    @media screen and (min-width: 481px) and (max-width: 768px) {
+        .chat-widget-wrapper {
+            bottom: 16px;
+            right: 16px;
+        }
+
         .chat-widget {
+            width: calc(100vw - 32px);
             height: min(600px, 70vh);
+            max-width: 420px;
+            margin-bottom: 12px;
         }
     }
 
@@ -412,13 +479,36 @@
         }
     }
 
-    /* Patch 2 Status Hint Styles */
+    /* Small height screens */
+    @media screen and (max-height: 500px) {
+        .chat-widget {
+            height: calc(100vh - 40px);
+        }
+
+        .messages {
+            flex: 1;
+            min-height: 0;
+        }
+    }
+
+    /* Status Hint Styles */
     .status-hint {
         font-size: 0.85rem;
         opacity: 0.75;
         margin-bottom: 4px;
         font-style: italic;
         animation: statusPulse 1.2s ease-in-out infinite;
+    }
+
+    /* Ensure smooth transition when switching between typing indicator and content */
+    .message-inner,
+    .compact-message-inner {
+        min-height: 20px;
+    }
+
+    /* Smooth opacity transition for typing elements */
+    .typing-indicator {
+        transition: opacity 0.15s ease-in-out;
     }
 
     @keyframes statusPulse {

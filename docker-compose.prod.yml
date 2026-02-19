@@ -58,5 +58,18 @@ services:
     ports:
       - "8081:80"
 
+  cal-backend:
+    build:
+      context: ./cal_backend
+      dockerfile: Dockerfile
+    container_name: web_scraper_cal_backend
+    restart: always
+    environment:
+      - MAIN_BACKEND_URL=http://backend:8000
+    env_file:
+      - ./cal_backend/.env
+    ports:
+      - "8001:8001"
+
 volumes:
   postgres_data:

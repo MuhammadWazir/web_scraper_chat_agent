@@ -18,18 +18,30 @@ export function MessageList({ messages, isTyping, onHintClick }) {
                     {message.role === 'ai' || message.role === 'assistant' ? (
                         <>
                             {message.isFollowUp && <div className="follow-up-badge">Follow-up</div>}
-                            {/* Status hint (visible while streaming) */}
+                            
+                            {/* Status hint - show when streaming */}
                             {message.streaming && message.statusHint && (
                                 <div className="status-hint">
                                     {message.statusHint}
                                 </div>
                             )}
-                            {/* Assistant response (streams incrementally) */}
+                            
+                            {/* Show typing indicator when streaming but no content yet */}
+                            {message.streaming && !message.content && (
+                                <div className="typing-indicator">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            )}
+                            
+                            {/* Assistant response - always render if exists */}
                             {message.content && (
                                 <div className="message-content">
                                     <ReactMarkdown>{message.content}</ReactMarkdown>
                                 </div>
                             )}
+                            
                             {message.hints && message.hints.length > 0 && (
                                 <div className="message-hints">
                                     {message.hints.map((hint, hintIdx) => (

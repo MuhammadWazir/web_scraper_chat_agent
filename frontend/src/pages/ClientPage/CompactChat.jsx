@@ -121,7 +121,8 @@ function CompactChat({
 
                                                 {(message.streaming || message.statusHint || message.content) && (
                                                     <div className="compact-message-inner">
-                                                        {message.streaming && !message.statusHint && !message.content && (
+                                                        {/* Show typing indicator when streaming but no content yet */}
+                                                        {message.streaming && !message.content && (
                                                             <div className="compact-typing-indicator-inline">
                                                                 <span></span>
                                                                 <span></span>
@@ -129,12 +130,14 @@ function CompactChat({
                                                             </div>
                                                         )}
 
+                                                        {/* Show status hint - keep visible while streaming with content */}
                                                         {message.statusHint && (
                                                             <div className="compact-status-hint">
                                                                 {message.statusHint}
                                                             </div>
                                                         )}
 
+                                                        {/* Show content - always render if exists */}
                                                         {message.content && (
                                                             <div className="compact-message-content">
                                                                 <ReactMarkdown>{message.content}</ReactMarkdown>

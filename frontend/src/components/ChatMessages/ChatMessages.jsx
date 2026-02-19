@@ -42,6 +42,14 @@ function ChatMessages({ messages, isTyping, isEmpty, onHintClick }) {
                     {message.statusHint}
                   </div>
                 )}
+                {/* Show typing indicator when streaming but no content yet */}
+                {message.streaming && !message.content && (
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                )}
                 {/* Assistant response (streams incrementally) */}
                 {message.content && <ReactMarkdown>{message.content}</ReactMarkdown>}
                 {message.hints && message.hints.length > 0 && (

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  cal-backend:
+    build: 
+      context: ./cal_backend
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - MAIN_BACKEND_URL=${MAIN_BACKEND_URL:-http://backend:8000}
+    env_file:
+      - ./cal_backend/.env
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

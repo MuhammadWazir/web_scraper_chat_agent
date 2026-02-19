@@ -212,9 +212,29 @@ function ClientPage({ onLogout }) {
       }));
     }
 
-    setIsTyping(true);
-
     try {
+      const tempAiMessageId = `temp-ai-${Date.now()}`;
+
+      // Add AI message placeholder BEFORE streaming starts to prevent flicker
+      // This ensures smooth transition from typing indicator to content
+      setMessages(prev => ({
+        ...prev,
+        [currentChatId]: [
+          ...(prev[currentChatId] || []),
+          {
+            message_id: tempAiMessageId,
+            content: '',
+            statusHint: null,
+            ai_generated: true,
+            role: 'assistant',
+            streaming: true,
+            created_at: new Date().toISOString()
+          }
+        ]
+      }));
+      // Note: We don't set isTyping(true) here because the placeholder message
+      // already shows an inline typing indicator. This prevents double typing effects.
+
       const response = await fetch('/api/chats/send-message-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -233,7 +253,6 @@ function ClientPage({ onLogout }) {
       let currentStatusHint = null;
       let realChatId = currentChatId;
       let chatTitle = null;
-      const tempAiMessageId = `temp-ai-${Date.now()}`;
       let buffer = '';
       let firstChunkReceived = false;
 
@@ -279,7 +298,9 @@ function ClientPage({ onLogout }) {
 
           try {
             const jsonData = JSON.parse(trimmedLine);
-            if (!firstChunkReceived) {
+            // Only hide typing indicator when we actually receive content
+            // This prevents flicker between status hints and content
+            if (!firstChunkReceived && (jsonData.type === 'content' || jsonData.type === 'complete')) {
               setIsTyping(false);
               firstChunkReceived = true;
             }

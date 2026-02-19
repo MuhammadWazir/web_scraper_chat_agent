@@ -12,8 +12,8 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    const [isOpen, setIsOpen] = useState(false);
-    const [showChat, setShowChat] = useState(false);
+    const [isOpen, setIsOpen] = useState(true); // Auto-open by default
+    const [showChat, setShowChat] = useState(true); // Show chat area by default
 
     const apiService = new ApiService(baseUrl, authToken);
     const storageService = new StorageService(sessionToken);
@@ -95,15 +95,23 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
             setChats(loadedChats);
 
             if (loadedChats.length > 0) {
+                // Select the first chat if none selected
                 if (!activeChatId) {
-                    selectChat(loadedChats[0].chat_id);
+                    await selectChat(loadedChats[0].chat_id);
                 }
             } else {
+                // Create a new chat if none exist
                 await createChat();
             }
 
         } catch (error) {
             console.error('Failed to load chats:', error);
+            // Try to create a chat as fallback
+            try {
+                await createChat();
+            } catch (createError) {
+                console.error('Failed to create fallback chat:', createError);
+            }
         }
     };
 
@@ -115,9 +123,8 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
             setMessages({ ...messages, [newChat.chat_id]: [] });
             setIsTyping(false);
 
-            if (isMobile) {
-                setShowChat(true);
-            }
+            // Always show chat area (desktop and mobile)
+            setShowChat(true);
         } catch (error) {
             console.error('Failed to create chat:', error);
         }
@@ -245,8 +252,6 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
             }));
         }
 
-        setIsTyping(true);
-
         try {
             const tempAiMessageId = `temp-ai-${Date.now()}`;
             let streamedContent = '';
@@ -255,12 +260,33 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
             let realChatId = currentChatId;
             let chatTitle = null;
 
+            // Add AI message placeholder BEFORE streaming starts to prevent flicker
+            // This ensures smooth transition from typing indicator to content
+            setMessages(prev => ({
+                ...prev,
+                [currentChatId]: [
+                    ...(prev[currentChatId] || []),
+                    {
+                        message_id: tempAiMessageId,
+                        role: 'assistant',
+                        content: '',
+                        statusHint: null,
+                        streaming: true,
+                        created_at: new Date().toISOString()
+                    }
+                ]
+            }));
+            // Note: We don't set isTyping(true) here because the placeholder message
+            // already shows an inline typing indicator. This prevents double typing effects.
+
             await apiService.sendMessageStream(
                 sessionToken,
                 currentChatId.startsWith('temp-') ? null : currentChatId,
                 text,
                 async (event) => {
-                    if (!firstChunkReceived) {
+                    // Only hide typing indicator when we actually receive content
+                    // This prevents flicker between status hints and content
+                    if (!firstChunkReceived && (event.type === 'content' || event.type === 'complete')) {
                         setIsTyping(false);
                         firstChunkReceived = true;
                     }
