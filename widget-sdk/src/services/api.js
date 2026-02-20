@@ -121,29 +121,47 @@ export class ApiService {
             const decoder = new TextDecoder();
 
             let buffer = '';
+
+            const processLine = async (line) => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+                try {
+                    const jsonData = JSON.parse(trimmed);
+                    if (onChunk) {
+                        await onChunk(jsonData);
+                    }
+                } catch (parseError) {
+                    console.warn('Failed to parse chunk:', trimmed, parseError);
+                }
+            };
+
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
 
-                buffer += decoder.decode(value, { stream: true });
-                // Hack to fix fused JSONs (aggressive)
-                buffer = buffer.replace(/}\s*{"type"/g, '}\n{"type"');
+                if (value) {
+                    buffer += decoder.decode(value, { stream: true });
+                }
+
+                if (done) {
+                    // Flush the TextDecoder and any remaining buffered JSON
+                    buffer += decoder.decode();
+                    if (buffer.trim()) {
+                        buffer = buffer.replace(/}\s*{/g, '}\n{');
+                        for (const line of buffer.split('\n')) {
+                            await processLine(line);
+                        }
+                    }
+                    break;
+                }
+
+                // Split fused JSON objects — same aggressive regex as the frontend
+                buffer = buffer.replace(/}\s*{/g, '}\n{');
                 const lines = buffer.split('\n');
-                
-                // Keep the last line in the buffer
-                buffer = lines.pop();
+                // Keep the last (potentially incomplete) line in the buffer
+                buffer = lines.pop() ?? '';
 
                 for (const line of lines) {
-                    if (!line.trim()) continue;
-
-                    try {
-                        const jsonData = JSON.parse(line);
-                        if (onChunk) {
-                            await onChunk(jsonData);
-                        }
-                    } catch (parseError) {
-                        console.warn('Failed to parse chunk:', line, parseError);
-                    }
+                    await processLine(line);
                 }
             }
         } catch (error) {

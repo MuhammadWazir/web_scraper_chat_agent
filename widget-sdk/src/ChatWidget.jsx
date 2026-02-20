@@ -341,9 +341,21 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
                         currentStatusHint = null;
                     }
 
-                    // Handle completion
+                    // Handle completion — finalize the streaming message
                     else if (event.type === 'complete') {
                         currentStatusHint = null;
+                        // Mark the placeholder as done with its final content
+                        setMessages(prev => {
+                            const chatMessages = [...(prev[realChatId] || prev[currentChatId] || [])];
+                            return {
+                                ...prev,
+                                [realChatId || currentChatId]: chatMessages.map(m =>
+                                    m.message_id === tempAiMessageId
+                                        ? { ...m, streaming: false, statusHint: null, content: streamedContent }
+                                        : m
+                                )
+                            };
+                        });
                     }
 
                     // Update AI message in UI
@@ -366,6 +378,14 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
                     });
                 }
             );
+
+            // Always refresh messages from the server after streaming ends.
+            // This ensures clean state (no streaming flags) and authoritative content.
+            const finalChatId = realChatId && !realChatId.startsWith('temp-') ? realChatId : null;
+            if (finalChatId) {
+                const history = await apiService.loadMessages(sessionToken, finalChatId);
+                setMessages(prev => ({ ...prev, [finalChatId]: history }));
+            }
 
             // If a new chat was created, reload the chat list to ensure consistency
             if (newChatCreated) {
@@ -434,7 +454,7 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
 
                     <div className={`chat-container ${(isMobile && showChat) ? 'mobile-chat-view' : ''}`}>
                         {isMobile && (
-                            <button 
+                            <button
                                 className="mobile-chat-list-toggle"
                                 onClick={() => setMobileChatListOpen(!mobileChatListOpen)}
                             >

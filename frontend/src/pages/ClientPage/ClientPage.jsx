@@ -485,8 +485,8 @@ function ClientPage({ onLogout }) {
   return (
     <div className="client-page">
       <div className={`client-header ${headerCollapsed ? 'collapsed' : ''}`}>
-        <button 
-          className="header-collapse-btn" 
+        <button
+          className="header-collapse-btn"
           onClick={() => setHeaderCollapsed(!headerCollapsed)}
           aria-label={headerCollapsed ? "Expand header" : "Collapse header"}
         >
