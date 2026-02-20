@@ -115,9 +115,7 @@ def convert_value(value: Any, schema: Dict[str, Any], field_name: str = "") -> A
 def execute_endpoint(
     endpoint: Dict[str, Any],
     args: Dict[str, Any],
-    auth_token: Optional[str] = None,
-    oauth_client_id: Optional[str] = None,
-    oauth_client_secret: Optional[str] = None
+    auth_token: Optional[str] = None
 ) -> Dict[str, Any]:
     base_url = endpoint.get("base_url", "").rstrip("/")
     url = base_url + endpoint["url"]
@@ -162,39 +160,11 @@ def execute_endpoint(
                 schema = {**schema, "type": "object"}
             body[key] = convert_value(args[key], schema)
 
-    # Handle auth - check for oauth_or_apiKey or bearer
+    # Handle auth - apply bearer token if provided
     auth_type = endpoint.get("auth", "")
-    
-    # Get OAuth credentials from endpoint config if available
-    oauth_client_id = endpoint.get("oauth_client_id")
-    oauth_client_secret = endpoint.get("oauth_client_secret")
-    
-    if auth_type in ("bearer", "oauth_or_apiKey"):
-        # Use provided auth_token if available
-        if auth_token:
-            headers["Authorization"] = auth_token
-        # If no auth_token but we have OAuth credentials in endpoint config, try to get access token
-        elif oauth_client_id and oauth_client_secret:
-            # Try to get OAuth access token
-            try:
-                base_url = endpoint.get("base_url", "").rstrip("/")
-                oauth_url = f"{base_url}/oauth/token"
-                oauth_response = requests.post(
-                    oauth_url,
-                    data={
-                        "grant_type": "client_credentials",
-                        "client_id": oauth_client_id,
-                        "client_secret": oauth_client_secret
-                    },
-                    timeout=10
-                )
-                if oauth_response.ok:
-                    token_data = oauth_response.json()
-                    access_token = token_data.get("access_token")
-                    if access_token:
-                        headers["Authorization"] = f"Bearer {access_token}"
-            except Exception:
-                pass  # Fall back to no auth
+
+    if auth_type in ("bearer") and auth_token:
+        headers["Authorization"] = auth_token
 
     try:
         response = requests.request(
