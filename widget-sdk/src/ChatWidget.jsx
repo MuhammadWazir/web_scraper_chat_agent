@@ -24,7 +24,7 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
         initWidget();
 
         const handleResize = () => {
-            setIsMobile(window.innerWidth <= 768);
+            setIsMobile(window.innerWidth <= 480);
         };
 
         handleResize();
@@ -32,9 +32,7 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
 
         return () => {
             window.removeEventListener('resize', handleResize);
-            if (inactivityTimerRef.current) {
-                clearTimeout(inactivityTimerRef.current);
-            }
+            clearInactivityTimer();
         };
     }, []);
 
@@ -417,7 +415,7 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
     const currentMessages = activeChatId ? (messages[activeChatId] || []) : [];
 
     return (
-        <div className="chat-widget-wrapper">
+        <div className={`chat-widget-wrapper ${isOpen ? 'open' : ''} ${isMobile ? 'mobile' : ''}`}>
             {/* Launcher Button */}
             {!isOpen && (
                 <button className="chat-launcher" onClick={() => setIsOpen(true)}>
