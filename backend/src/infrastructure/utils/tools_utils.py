@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional, Any
-import requests
+import httpx
 import json
 
 
@@ -112,18 +112,19 @@ def convert_value(value: Any, schema: Dict[str, Any], field_name: str = "") -> A
     return value
 
 
-def execute_endpoint(
+async def execute_endpoint(
     endpoint: Dict[str, Any],
     args: Dict[str, Any],
     auth_token: Optional[str] = None
 ) -> Dict[str, Any]:
+    """Async HTTP executor — uses httpx so the event loop is never blocked."""
     base_url = endpoint.get("base_url", "").rstrip("/")
     url = base_url + endpoint["url"]
     method = endpoint["method"].upper()
     headers = endpoint.get("headers", {}).copy()
     params: Dict[str, Any] = {}
     body: Dict[str, Any] = {}
-    
+
     if "headers" in endpoint or "body" in endpoint:
         headers_schema = endpoint.get("headers", {})
         body_schema = endpoint.get("body", {})
@@ -160,34 +161,33 @@ def execute_endpoint(
                 schema = {**schema, "type": "object"}
             body[key] = convert_value(args[key], schema)
 
-    # Handle auth - apply bearer token if provided
+    # Handle auth — apply bearer token if provided
     auth_type = endpoint.get("auth", "")
-
-    if auth_type in ("bearer") and auth_token:
+    if auth_type == "bearer" and auth_token:
         headers["Authorization"] = auth_token
 
     try:
-        response = requests.request(
-            method=method,
-            url=url,
-            headers=headers,
-            params=params or None,
-            json=body or None,
-            timeout=30
-        )
-        
-        if not response.ok:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.request(
+                method=method,
+                url=url,
+                headers=headers,
+                params=params or None,
+                json=body or None,
+            )
+
+        if not response.is_success:
             try:
                 error_details = response.json()
-            except json.JSONDecodeError:
+            except Exception:
                 error_details = response.text
-            
+
             return {
                 "error": "API_ERROR",
                 "status_code": response.status_code,
                 "details": error_details
             }
-            
+
         return response.json() if response.content else {"status": "success"}
     except Exception as e:
         return {"error": f"EXECUTION_ERROR: {str(e)}"}

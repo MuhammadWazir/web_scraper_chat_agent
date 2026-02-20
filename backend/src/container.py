@@ -7,6 +7,7 @@ from src.infrastructure.database.repositories.client_repository import ClientRep
 from src.infrastructure.database.repositories.chat_repository import ChatRepository
 from src.infrastructure.database.repositories.message_repository import MessageRepository
 from src.infrastructure.database.repositories.widget_session_repository import WidgetSessionRepository
+from src.infrastructure.services.EmbeddingService import EmbeddingService
 from src.infrastructure.services.RagService import RAGService
 from src.infrastructure.services.ChatTitleService import ChatTitleService
 from src.infrastructure.clients.vector_store_client import VectorStoreClient
@@ -60,12 +61,16 @@ class Container(containers.DeclarativeContainer):
         db=db_session
     )
     
-    # Domain Services - factory
-    rag_service = providers.Factory(RAGService)
-    
-    chat_title_service = providers.Singleton(ChatTitleService)
-    
+    # Domain Services
+    embedding_service = providers.Singleton(EmbeddingService)
     vector_store_client = providers.Singleton(VectorStoreClient)
+    rag_service = providers.Singleton(
+        RAGService,
+        embedding_service=embedding_service,
+        vector_store_client=vector_store_client,
+    )
+
+    chat_title_service = providers.Singleton(ChatTitleService)
     
     # Use Cases - factory (create new instance for each use)
     create_client_use_case = providers.Factory(

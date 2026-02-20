@@ -1,6 +1,7 @@
 from typing import Any, Dict, Optional, List, AsyncIterator
 from openai import AsyncOpenAI
 import json
+import asyncio
 
 from src.domain.utils.chat_formatter import format_chat_history
 from src.infrastructure.utils.tools_utils import build_tools_schema, execute_endpoint
@@ -11,7 +12,7 @@ class AgentRunnable:
     Agent that can call tools with streaming support and status hints.
     Sends hints BEFORE calling tools, not after.
     """
-    
+
     def __init__(
         self,
         client: AsyncOpenAI,
@@ -52,17 +53,17 @@ class AgentRunnable:
         company_context = f"You are a representative of {self.company_name}. " if self.company_name else ""
 
         prompt_parts = []
-        
+
         if company_context:
             prompt_parts.append(company_context)
-        
+
         if self.system_prompt:
             prompt_parts.append(self.system_prompt)
-        
+
         prompt_parts.append(f"API token: {auth_token}")
         prompt_parts.append(f"Context:\\n{context}")
         prompt_parts.append(f"Chat History:\\n{history}")
-        
+
         full_system_prompt = "\\n\\n".join(prompt_parts)
 
         messages = [
@@ -94,7 +95,7 @@ class AgentRunnable:
                 endpoint = self.endpoint_map.get(name)
 
                 result = (
-                    execute_endpoint(endpoint, args, auth_token)
+                    await execute_endpoint(endpoint, args, auth_token)
                     if endpoint else {"error": f"Unknown tool: {name}"}
                 )
 
@@ -105,13 +106,12 @@ class AgentRunnable:
                 })
 
     async def astream(
-        self, 
-        input_data: Any, 
+        self,
+        input_data: Any,
         config: Optional[Dict] = None
     ) -> AsyncIterator[str]:
         """
         Streaming version with status hints BEFORE operations.
-        This is the key method that sends hints before tool calls.
         """
         question = input_data if isinstance(input_data, str) else input_data.get("input", "")
         auth_token = (config or {}).get("configurable", {}).get("auth_token")
@@ -130,17 +130,17 @@ class AgentRunnable:
         company_context = f"You are a representative of {self.company_name}. " if self.company_name else ""
 
         prompt_parts = []
-        
+
         if company_context:
             prompt_parts.append(company_context)
-        
+
         if self.system_prompt:
             prompt_parts.append(self.system_prompt)
-        
+
         prompt_parts.append(f"API token: {auth_token}")
         prompt_parts.append(f"Context:\\n{context}")
         prompt_parts.append(f"Chat History:\\n{history}")
-        
+
         full_system_prompt = "\\n\\n".join(prompt_parts)
 
         messages = [
@@ -158,18 +158,18 @@ class AgentRunnable:
         # Agentic loop with tool calls
         max_iterations = 10
         iteration = 0
-        
+
         while iteration < max_iterations:
             iteration += 1
-            
+
             # HINT: Analyzing what to do next
             if iteration == 1:
                 yield json.dumps({
                     "type": "status_hint",
                     "message": "🤔 Analyzing your request..."
                 })
-            
-            # Get model response (may include tool calls)
+
+            # Get model response (may include tool calls) — non-streaming decision turn
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -179,48 +179,59 @@ class AgentRunnable:
 
             msg = response.choices[0].message
 
-            # If no tool calls, stream the final response
+            # If no tool calls, stream the final response with real token streaming
             if not msg.tool_calls:
                 yield json.dumps({
                     "type": "status_hint",
                     "message": "✍️ Writing response..."
                 })
-                
-                # Stream the content
-                if msg.content:
-                    # Split into chunks for streaming effect
-                    words = msg.content.split()
-                    for i, word in enumerate(words):
-                        chunk = word + (" " if i < len(words) - 1 else "")
+
+                stream = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    tools=self.tool_definitions,
+                    tool_choice="none",   # decision already made; skip re-routing
+                    stream=True
+                )
+                async for chunk in stream:
+                    delta = chunk.choices[0].delta.content
+                    if delta:
                         yield json.dumps({
                             "type": "content",
-                            "data": chunk
+                            "data": delta
                         })
                 return
 
-            # Tool calls detected - execute them
+            # Tool calls detected — execute them
             messages.append(msg)
 
-            for call in msg.tool_calls:
+            async def _run_tool(call) -> tuple:
                 name = call.function.name
                 args = json.loads(call.function.arguments)
                 endpoint = self.endpoint_map.get(name)
-                
+                result = (
+                    await execute_endpoint(endpoint, args, auth_token)
+                    if endpoint
+                    else {"error": f"Unknown tool: {name}"}
+                )
+                return call, name, result
+
+            for call in msg.tool_calls:
+                name = call.function.name
                 yield json.dumps({
                     "type": "status_hint",
                     "message": f"🔧 Calling {name}..."
                 })
 
-                # NOW execute the tool
-                result = execute_endpoint(endpoint, args, auth_token) if endpoint else {"error": f"Unknown tool: {name}"}
+            # Run all tool HTTP requests concurrently
+            tool_results = await asyncio.gather(*[_run_tool(c) for c in msg.tool_calls])
 
+            for call, name, result in tool_results:
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call.id,
                     "content": json.dumps(result)
                 })
-                
-                # HINT: Tool completed
                 yield json.dumps({
                     "type": "status_hint",
                     "message": f"✅ Got results from {name}"

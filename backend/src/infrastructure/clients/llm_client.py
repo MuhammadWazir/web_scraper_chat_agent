@@ -16,6 +16,11 @@ class LLMClient(AbstractLLMClient):
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
         self.default_model = "gpt-5-mini"
         self.default_embedding_model = "text-embedding-3-small"
+        # FIX #8: Build ChatOpenAI once and reuse it — avoids object reconstruction per message
+        self._chat_model = ChatOpenAI(
+            model=self.default_model,
+            api_key=settings.openai_api_key,
+        )
 
     async def create_completion(
         self,
@@ -117,24 +122,19 @@ class LLMClient(AbstractLLMClient):
         tools: Optional[List[Dict]] = None,
         system_prompt: str = ""
     ):
-        settings = load_settings()
-
         history_text = format_chat_history(chat_history) if chat_history else ""
         company_context = f"You are a representative of {company_name}. " if company_name else ""
 
-        model = ChatOpenAI(
-            model="gpt-5-mini",
-            api_key=settings.openai_api_key
-        )
+        # FIX #8: Reuse the cached ChatOpenAI instance instead of building a new one per call
         escaped_history = history_text.replace("{", "{{").replace("}", "}}")
         escaped_company_context = company_context.replace("{", "{{").replace("}", "}}")
 
         prompt_parts = [escaped_company_context]
-        
+
         if system_prompt:
             escaped_system_prompt = system_prompt.replace("{", "{{").replace("}", "}}")
             prompt_parts.append(escaped_system_prompt)
-        
+
         prompt_parts.extend([
             "Use the following context to answer the question. "
             "If you don't know, say you don't know.\\n\\n",
@@ -143,13 +143,13 @@ class LLMClient(AbstractLLMClient):
             "Question:\\n{input}\\n\\n",
             "Helpful Answer:"
         ])
-        
+
         prompt_template = "".join(prompt_parts)
 
         prompt = ChatPromptTemplate.from_template(prompt_template)
 
         document_chain = create_stuff_documents_chain(
-            llm=model,
+            llm=self._chat_model,
             prompt=prompt
         )
 

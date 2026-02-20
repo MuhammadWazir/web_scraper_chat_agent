@@ -6,28 +6,24 @@ from src.infrastructure.clients.vector_store_client import VectorStoreClient
 
 class VectorStoreService:
     """Service for managing vector stores with Qdrant"""
-    
-    def __init__(self, embeddings):
+
+    def __init__(self, embeddings, vector_client: VectorStoreClient):
         self.embeddings = embeddings
-        self.vector_client = VectorStoreClient()
+        self.vector_client = vector_client
 
     def create_store(self, documents: List[Document], collection_name: str) -> str:
         """Create and populate a new vector store collection"""
         # Extract texts and metadata from documents
         texts = [doc.page_content for doc in documents]
         metadatas = [doc.metadata for doc in documents]
-        
-        # Generate embeddings
-        embeddings_list = []
-        for text in texts:
-            embedding = self.embeddings.embed_query(text)
-            embeddings_list.append(embedding)
-        
+
+        embeddings_list = self.embeddings.embed_documents(texts)
+
         # Enrich metadata with text content
         for i, meta in enumerate(metadatas):
             meta["text"] = texts[i]
             meta["original_text"] = texts[i]
-        
+
         # Upload to Qdrant
         self.vector_client.upload(
             collection_name=collection_name,
@@ -35,7 +31,7 @@ class VectorStoreService:
             metadatas=metadatas,
             vector_size=len(embeddings_list[0]) if embeddings_list else 1536
         )
-        
+
         return collection_name
 
     def search(self, query: str, collection_name: str, k: int = 3) -> List[Dict]:
