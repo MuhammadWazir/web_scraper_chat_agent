@@ -415,91 +415,125 @@ export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', au
     const currentMessages = activeChatId ? (messages[activeChatId] || []) : [];
 
     return (
-        <div className={`chat-widget-wrapper ${isOpen ? 'open' : ''} ${isMobile ? 'mobile' : ''}`}>
-            {/* Launcher Button */}
+        <div className={`chat-widget-wrapper ${isOpen ? 'open' : ''}`}>
+
+            {/* ===============================
+           LAUNCHER BUTTON (CLOSED STATE)
+        ================================ */}
             {!isOpen && (
-                <button className="chat-launcher" onClick={() => setIsOpen(true)}>
+                <button
+                    className="chat-launcher"
+                    onClick={() => setIsOpen(true)}
+                    aria-label="Open chat"
+                >
                     <svg viewBox="0 0 24 24" width="24" height="24">
-                        <path fill="currentColor" d="M12,2C6.47,2,2,6.47,2,12c0,2.21,0.72,4.24,1.94,5.88L3,22l4.12-0.94C8.76,21.65,10.32,22,12,22c5.53,0,10-4.47,10-10 S17.53,2,12,2" />
+                        <path
+                            fill="currentColor"
+                            d="M12,2C6.47,2,2,6.47,2,12c0,2.21,0.72,4.24,1.94,5.88L3,22l4.12-0.94C8.76,21.65,10.32,22,12,22c5.53,0,10-4.47,10-10S17.53,2,12,2"
+                        />
                     </svg>
                 </button>
             )}
 
-            {/* Chat Window */}
+            {/* ===============================
+           CHAT WINDOW (OPEN STATE)
+        ================================ */}
             {isOpen && (
                 <div className="chat-widget animated-fade-in">
+
+                    {/* ---------- HEADER ---------- */}
                     <div className="chat-header">
                         <div className="header-info">
                             <span className="dot"></span>
                             <span className="title">AI Assistant</span>
                         </div>
-                        <button className="close-btn" onClick={() => setIsOpen(false)}>×</button>
+
+                        <button
+                            className="close-btn"
+                            onClick={() => setIsOpen(false)}
+                        >
+                            ×
+                        </button>
                     </div>
 
-                    {/* Error Banner */}
+                    {/* ---------- ERROR BANNER ---------- */}
                     {initError && (
-                        <div style={{
-                            padding: '12px 16px',
-                            backgroundColor: '#fee',
-                            color: '#c00',
-                            borderBottom: '1px solid #fcc',
-                            fontSize: '14px',
-                            lineHeight: '1.5'
-                        }}>
+                        <div className="error-banner">
                             <strong>⚠️ Error:</strong> {initError}
                         </div>
                     )}
 
-                    <div className={`chat-container ${(isMobile && showChat) ? 'mobile-chat-view' : ''}`}>
-                        {isMobile && (
-                            <button
-                                className="mobile-chat-list-toggle"
-                                onClick={() => setMobileChatListOpen(!mobileChatListOpen)}
-                            >
-                                {mobileChatListOpen ? '▼ Hide Chats' : '▲ Show Chats'}
-                            </button>
-                        )}
-                        {(!isMobile || !showChat || mobileChatListOpen) && (
+                    {/* ===============================
+                   BODY (CRITICAL FLEX WRAPPER)
+                ================================ */}
+                    <div className="chat-body">
+
+                        {/* ---------- CHAT LIST ---------- */}
+                        <div
+                            className={`chat-list ${isMobile && mobileChatListOpen ? 'mobile-visible' : ''
+                                }`}
+                        >
                             <ChatList
                                 chats={chats}
                                 activeChatId={activeChatId}
                                 onSelectChat={selectChat}
                                 onDeleteChat={deleteChat}
                                 onNewChat={createChat}
-                                className={mobileChatListOpen ? 'mobile-visible' : ''}
                             />
-                        )}
+                        </div>
 
-                        {(!isMobile || showChat) && (
-                            <div className="chat-area">
-                                {isMobile && (
-                                    <button className="back-btn" onClick={() => setShowChat(false)}>
-                                        ← Back
-                                    </button>
-                                )}
+                        {/* ---------- CHAT AREA ---------- */}
+                        <div className="chat-area">
 
-                                <MessageList
-                                    messages={currentMessages}
-                                    isTyping={isTyping}
+                            {/* Mobile Toggle (inside area, like CompactChat) */}
+                            {isMobile && (
+                                <button
+                                    className="mobile-chat-list-toggle"
+                                    onClick={() =>
+                                        setMobileChatListOpen(!mobileChatListOpen)
+                                    }
+                                >
+                                    {mobileChatListOpen
+                                        ? '▼ Hide Chats'
+                                        : '▲ Show Chats'}
+                                </button>
+                            )}
+
+                            <MessageList
+                                messages={currentMessages}
+                                isTyping={isTyping}
+                            />
+
+                            {/* ---------- INPUT AREA ---------- */}
+                            <div className="chat-input-area">
+                                <textarea
+                                    className="chat-input"
+                                    value={inputValue}
+                                    onChange={(e) =>
+                                        setInputValue(e.target.value)
+                                    }
+                                    onKeyDown={handleKeyPress}
+                                    placeholder="Type your message..."
+                                    rows={1}
                                 />
 
-                                <div className="chat-input-area">
-                                    <textarea
-                                        className="chat-input"
-                                        value={inputValue}
-                                        onChange={(e) => setInputValue(e.target.value)}
-                                        onKeyPress={handleKeyPress}
-                                        placeholder="Type your message..."
-                                        rows={1}
-                                    />
-                                    <button className="send-btn" onClick={sendMessage}>
-                                        <svg viewBox="0 0 24 24" width="20" height="20">
-                                            <path fill="currentColor" d="M2,21L23,12L2,3V10L17,12L2,14V21Z" />
-                                        </svg>
-                                    </button>
-                                </div>
+                                <button
+                                    className="send-btn"
+                                    onClick={sendMessage}
+                                >
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        width="20"
+                                        height="20"
+                                    >
+                                        <path
+                                            fill="currentColor"
+                                            d="M2,21L23,12L2,3V10L17,12L2,14V21Z"
+                                        />
+                                    </svg>
+                                </button>
                             </div>
-                        )}
+                        </div>
                     </div>
                 </div>
             )}
