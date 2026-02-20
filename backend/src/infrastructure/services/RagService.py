@@ -9,6 +9,7 @@ from src.infrastructure.services.EmbeddingService import EmbeddingService
 from src.infrastructure.services.VectorStore import VectorStoreService
 from src.infrastructure.clients.llm_client import LLMClient
 from src.infrastructure.clients.vector_store_client import VectorStoreClient
+from src.infrastructure.chains.agent_chain import AgentRunnable
 from src.domain.utils.chat_formatter import format_chat_history
 import json
 
@@ -125,7 +126,10 @@ class RAGService(IRAGService):
             k=3
         )
 
-        # If tools are provided (agentic mode), skip RAG - let the agent handle it
+        # If tools are provided (agentic mode), skip RouterChain and go straight to
+        # AgentRunnable. RouterChain adds a redundant extra LLM call just to decide
+        # whether to use tools — AgentRunnable already does this via tool_choice='auto'
+        # in the same call as the response, saving a full LLM round-trip.
         if tools:
             # Combine system prompt with follow-up instruction if needed
             effective_system_prompt = system_prompt or ""
@@ -133,16 +137,18 @@ class RAGService(IRAGService):
                 follow_up_instr = "The user has been inactive for 3 minutes. Send a very brief, friendly follow-up message to see if they need more help. Just one short sentence."
                 effective_system_prompt = f"{effective_system_prompt}\n\n{follow_up_instr}" if effective_system_prompt else follow_up_instr
 
-            chain = self.llm_client.create_chain(
-                retriever,
+            # Build the retriever for context (AgentRunnable uses it internally)
+            agent = AgentRunnable(
+                client=self.llm_client.client,
+                retriever=retriever,
+                tools_config=tools,
                 chat_history=chat_history,
                 company_name=company_name,
-                tools=tools,
-                system_prompt=effective_system_prompt
+                system_prompt=effective_system_prompt,
+                model=self.llm_client.default_model
             )
 
-            # Stream directly without querying RAG first
-            async for chunk in chain.astream(
+            async for chunk in agent.astream(
                 {"input": question, "chat_history": chat_history or []},
                 config={"configurable": {"auth_token": auth_token}}
             ):
