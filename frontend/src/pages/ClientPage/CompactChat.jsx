@@ -66,7 +66,7 @@ function CompactChat({
     };
 
     return (
-        <div className="cw-wrapper">
+        <div className={`cw-wrapper ${isOpen ? 'open' : ''}`}>
             {/* Launcher Button */}
             {!isOpen && (
                 <button className="cw-launcher" onClick={() => setIsOpen(true)}>

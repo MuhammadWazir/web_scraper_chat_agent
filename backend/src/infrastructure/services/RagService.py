@@ -108,31 +108,30 @@ class RAGService(IRAGService):
         """
         Stream response with status hints before each major operation.
         Yields status hints BEFORE the operation starts, not after.
+        
+        IMPORTANT: If tools are provided (agentic tool calls), skip RAG query
+        and let the agent decide when to use tools. Only query vector DB
+        when no tools are provided (simple Q&A without tool use).
         """
         
         # Initialize vector store if needed
         if self.vector_store_service is None:
             self.vector_store_service = VectorStoreService(self.embeddings.get_embeddings())
         
-        # HINT #1: About to search knowledge base
-        yield json.dumps({
-            "type": "status_hint",
-            "message": f"🔍 Searching {company_name}'s knowledge base..."
-        })
-        
-        # If tools are provided, use the chain logic which handles auth_token and tools correctly
+        # If tools are provided (agentic mode), skip RAG - let the agent handle it
         if tools:
-            retriever = QdrantRetriever(
-                vector_store=self.vector_store_service,
-                collection_name=company_name,
-                k=3
-            )
-            
             # Combine system prompt with follow-up instruction if needed
             effective_system_prompt = system_prompt or ""
             if is_follow_up:
                 follow_up_instr = "The user has been inactive for 3 minutes. Send a very brief, friendly follow-up message to see if they need more help. Just one short sentence."
                 effective_system_prompt = f"{effective_system_prompt}\n\n{follow_up_instr}" if effective_system_prompt else follow_up_instr
+
+            # Create retriever for context if needed, but don't force query
+            retriever = QdrantRetriever(
+                vector_store=self.vector_store_service,
+                collection_name=company_name,
+                k=3
+            )
 
             chain = self.llm_client.create_chain(
                 retriever,
@@ -142,7 +141,7 @@ class RAGService(IRAGService):
                 system_prompt=effective_system_prompt
             )
 
-            
+            # Stream directly without querying RAG first
             async for chunk in chain.astream(
                 {"input": question, "chat_history": chat_history or []},
                 config={"configurable": {"auth_token": auth_token}}
@@ -150,7 +149,13 @@ class RAGService(IRAGService):
                 yield chunk
             return
 
-        # NOW perform the retrieval for non-tool path
+        # HINT #1: About to search knowledge base (only for non-tool queries)
+        yield json.dumps({
+            "type": "status_hint",
+            "message": f"🔍 Searching {company_name}'s knowledge base..."
+        })
+        
+        # Only query RAG when NO tools are provided
         retriever = QdrantRetriever(
             vector_store=self.vector_store_service,
             collection_name=company_name,

@@ -20,7 +20,9 @@ class AgentRunnable:
         chat_history: Optional[List[Dict]] = None,
         company_name: str = "",
         system_prompt: str = "",
-        model: str = "gpt-4o-mini"
+        model: str = "gpt-4o-mini",
+        oauth_client_id: Optional[str] = None,
+        oauth_client_secret: Optional[str] = None
     ):
         self.client = client
         self.retriever = retriever
@@ -29,6 +31,8 @@ class AgentRunnable:
         self.company_name = company_name
         self.system_prompt = system_prompt
         self.model = model
+        self.oauth_client_id = oauth_client_id
+        self.oauth_client_secret = oauth_client_secret
 
         if not isinstance(tools_config, list):
             self.tool_definitions = []
@@ -212,9 +216,7 @@ class AgentRunnable:
                 })
 
                 # NOW execute the tool
-                result = (
-                    execute_endpoint(endpoint, args, auth_token)
-                    if endpoint else {"error": f"Unknown tool: {name}"}
+                result = execute_endpoint(endpoint, args, auth_token, self.oauth_client_id, self.oauth_client_secret) if endpoint else {"error": f"Unknown tool: {name}"}
                 )
 
                 messages.append({
