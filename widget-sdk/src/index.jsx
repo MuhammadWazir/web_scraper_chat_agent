@@ -1,9 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { ChatWidget as InternalChatWidget } from './ChatWidget.jsx';
-// Import CSS as an inline string so the widget injects its own
-// styles at runtime — no separate <link> tag needed on the host page.
-import widgetStyles from './styles.css?inline';
+// Plain JS import — works in every build environment (no Vite ?inline needed).
+import widgetStyles from './widgetStyles.js';
 
 // ─── Self-contained style injection ───────────────────────────────────────────
 // Injects a <style> element exactly once so the widget works on any page
