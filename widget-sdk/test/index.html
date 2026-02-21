@@ -72,7 +72,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         #widget-container {
@@ -124,7 +126,7 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="./dist/style.css">
+    <!-- CSS is now bundled into widget.umd.js (injected at runtime) — no separate stylesheet needed -->
 </head>
 
 <body>
@@ -142,7 +144,7 @@
 
     <script>
         const CAL_BACKEND_URL = '/cal-api';
-        
+
         function showStatus(msg, type = 'loading') {
             const statusEl = document.getElementById('status-msg');
             statusEl.textContent = msg;
