@@ -3,7 +3,7 @@ import { ChatList } from './components/ChatList.jsx';
 import { MessageList } from './components/MessageList.jsx';
 import { ApiService } from './services/api.js';
 import { StorageService } from './services/storage.js';
-import './styles.css';
+// Note: CSS is injected by index.jsx via ?inline import — no import needed here.
 
 export function ChatWidget({ sessionToken, baseUrl = 'http://localhost:8000', authToken = null }) {
     const [chats, setChats] = useState([]);

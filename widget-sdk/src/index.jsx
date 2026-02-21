@@ -1,6 +1,22 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { ChatWidget as InternalChatWidget } from './ChatWidget.jsx';
+// Import CSS as an inline string so the widget injects its own
+// styles at runtime — no separate <link> tag needed on the host page.
+import widgetStyles from './styles.css?inline';
+
+// ─── Self-contained style injection ───────────────────────────────────────────
+// Injects a <style> element exactly once so the widget works on any page
+// without requiring the host to load a separate stylesheet.
+function injectStyles() {
+    const STYLE_ID = '__web-scraper-chat-widget-styles__';
+    if (!document.getElementById(STYLE_ID)) {
+        const style = document.createElement('style');
+        style.id = STYLE_ID;
+        style.textContent = widgetStyles;
+        document.head.appendChild(style);
+    }
+}
 
 class ChatWidget {
     constructor(config = {}) {
@@ -17,6 +33,9 @@ class ChatWidget {
     }
 
     render(selector) {
+        // Inject styles before rendering
+        injectStyles();
+
         this.container = document.querySelector(selector);
         if (!this.container) {
             console.error(`ChatWidget: Container "${selector}" not found`);
