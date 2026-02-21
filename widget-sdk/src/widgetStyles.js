@@ -638,4 +638,6 @@ const widgetStyles = `
 }
 `;
 
+// Use both named export and default export for maximum compatibility
 export default widgetStyles;
+export { widgetStyles };

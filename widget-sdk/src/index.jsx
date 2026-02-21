@@ -8,12 +8,17 @@ import widgetStyles from './widgetStyles.js';
 // Injects a <style> element exactly once so the widget works on any page
 // without requiring the host to load a separate stylesheet.
 function injectStyles() {
+    console.log('[v0] Widget CSS length:', widgetStyles?.length || 0);
+
     const STYLE_ID = '__web-scraper-chat-widget-styles__';
     if (!document.getElementById(STYLE_ID)) {
         const style = document.createElement('style');
         style.id = STYLE_ID;
         style.textContent = widgetStyles;
         document.head.appendChild(style);
+        console.log('[v0] Widget styles injected successfully');
+    } else {
+        console.log('[v0] Widget styles already present');
     }
 }
 
